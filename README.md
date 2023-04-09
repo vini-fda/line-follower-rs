@@ -38,7 +38,12 @@
     - [ ] The controller must be discretized using a state-space representation
         - [ ] As *extra* work, we could treat the controller sample frequency as different from the simulation frequency
 
+### Track
 
+- [ ] The track is just a collection of points
+    - [ ] The track should be closed, i.e. the last point should be connected to the first point
+    - [ ] The track should be a smooth curve
+- [ ] Create auxiliary library to implement arcs and straight lines
 
 ## GUI
 
