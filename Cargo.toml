@@ -1,5 +1,5 @@
 [package]
-name = "line_follower_eea48"
+name = "line_follower_rs"
 version = "0.1.0"
 edition = "2021"
 
