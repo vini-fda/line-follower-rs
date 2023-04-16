@@ -65,6 +65,8 @@ async fn main() {
     let mut egui_demo_windows = egui_demo_lib::DemoWindows::default();
     let mut draw_primitives_after_egui = false;
 
+    let mut should_draw_grid = true;
+
     let mut pixels_per_point: Option<f32> = None;
 
     let mut zoom: f32 = 1.0;
@@ -91,6 +93,8 @@ async fn main() {
                     &mut draw_primitives_after_egui,
                     "Draw macroquad primitives after egui",
                 );
+
+                ui.checkbox(&mut should_draw_grid, "Draw grid");
 
                 let response = ui.add(
                     egui::Slider::new(pixels_per_point.as_mut().unwrap(), 0.75..=3.0)
@@ -155,7 +159,10 @@ async fn main() {
 
         set_camera(&camera);
 
-        draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
+        if should_draw_grid {
+            draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
+        }
+        
 
         if !draw_primitives_after_egui {
             draw_primitives();
