@@ -4,15 +4,15 @@
 
 ## Graphics
 
-- [ ] Add the graphical representation of the robot
-    - [ ] Initially, just a simple rectangle with indicators for the sensors (front)
+- [x] Add the graphical representation of the robot
+    - [x] Initially, just a simple rectangle with indicators for the sensors (front)
 - [ ] Implement a simple library for the geometry of the track
 - [ ] Map simulation units to graphics/screen-space units
     - [ ] Simulation units should be, by default, equal to the real-world units in SI (i.e. 1 simulation unit = 1 meter)
     - [ ] When showing the simulation, a grid could have axes with configurable real-world units (i.e. 1 meter = 1 grid unit)
-- [ ] Add a camera to the simulation
-    - [ ] Add zoom and pan
-    - [ ] Add a grid with world coordinates (can be toggled)
+- [x] Add a camera to the simulation
+    - [x] Add zoom and pan
+    - [x] Add a grid with world coordinates (can be toggled)
 
 ## Simulation
 
