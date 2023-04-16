@@ -2,6 +2,8 @@ use egui::{Color32, plot::{Line, PlotPoints}};
 use line_follower_rs::math_utils::lattice_points;
 use macroquad::prelude::*;
 use std::f32::consts::PI;
+use line_follower_rs::geometry::interpolated_paths::{Path, predefined_closed_path};
+use itertools::Itertools;
 
 fn window_conf() -> Conf {
     Conf {
@@ -59,6 +61,12 @@ fn draw_primitives() {
     draw_robot(0.0, 0.0, 15.0, RED);
 }
 
+fn draw_path(path: &Path<f32>, color: Color) {
+    for ((x0, y0), (x1, y1)) in path.points().tuple_windows() {
+        draw_line(x0, y0, x1, y1, 0.04, color)
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut show_egui_demo_windows = false;
@@ -74,6 +82,8 @@ async fn main() {
     const CAMERA_SPEED: f32 = 3.0e-2;
     
     let mut camera_center: Vec2 = Vec2::ZERO;
+
+    let main_path = predefined_closed_path();
 
     loop {
         clear_background(WHITE);
@@ -163,7 +173,7 @@ async fn main() {
             draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
         }
         
-
+        draw_path(&main_path, RED);
         if !draw_primitives_after_egui {
             draw_primitives();
         }
