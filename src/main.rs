@@ -129,6 +129,7 @@ async fn main() {
         set_camera(&camera);
 
         // draw egui
+        zoom *= (mouse_wheel().1 * 0.1).exp();
 
         egui_macroquad::ui(|egui_ctx| {
             if pixels_per_point.is_none() {
@@ -169,7 +170,8 @@ async fn main() {
                     ui.label("Distance to path: N/A");
                 }
                 i = (i + 1) % mouse_sdf_history.len();
-                
+                let (mouse_wheel_x, mouse_wheel_y) = mouse_wheel();
+                ui.label(format!("Mouse wheel: ({:.3}, {:.3})", mouse_wheel_x, mouse_wheel_y));
 
                 // Don't change scale while dragging the slider
                 if response.drag_released() {
