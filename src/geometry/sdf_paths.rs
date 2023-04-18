@@ -101,7 +101,7 @@ impl<F> LinePath<F> where F: Float {
 
     fn within_bounds(&self, x: F, y: F) -> bool {
         let t = dot_product(x - self.x_0, y - self.y_0, self.x_1 - self.x_0, self.y_1 - self.y_0) / self.length;
-        t >= F::zero() && t <= F::one()
+        t >= F::zero() && t <= self.length
     }
 }
 
@@ -123,7 +123,7 @@ impl<F> SDF<F> for LinePath<F> where F: Float {
         // A x B = |A| |B| sin(theta)
         // then we divide by the length of the line path to get the signed distance (which is the height of the parallelogram)
         // d = A x B / |A|
-        let signed_dist = cross_product(x, y, self.x_1 - self.x_0, self.y_1 - self.y_0) / self.length;
+        let signed_dist = cross_product(x - self.x_0, y - self.y_0, self.x_1 - self.x_0, self.y_1 - self.y_0) / self.length;
         Some(signed_dist)
     }
 }
