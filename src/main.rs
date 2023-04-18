@@ -3,6 +3,7 @@ use line_follower_rs::math_utils::lattice_points;
 use macroquad::prelude::*;
 use std::f32::consts::PI;
 use line_follower_rs::geometry::interpolated_paths::{Path, predefined_closed_path};
+use line_follower_rs::geometry::sdf_paths::{SDF, predefined_closed_path_sdf};
 use itertools::Itertools;
 
 fn window_conf() -> Conf {
@@ -83,61 +84,17 @@ async fn main() {
     
     let mut camera_center: Vec2 = Vec2::ZERO;
 
+    // sample once per frame
+    let mut mouse_sdf_history = [0.0; 400];
+    let mut i = 0;
+
+    
+
     let main_path = predefined_closed_path();
+    let main_path_sdf = predefined_closed_path_sdf();
 
     loop {
         clear_background(WHITE);
-
-        egui_macroquad::ui(|egui_ctx| {
-            if pixels_per_point.is_none() {
-                pixels_per_point = Some(egui_ctx.pixels_per_point());
-            }
-
-            if show_egui_demo_windows {
-                egui_demo_windows.ui(egui_ctx);
-            }
-
-            egui::Window::new("Options").show(egui_ctx, |ui| {
-                ui.checkbox(&mut show_egui_demo_windows, "Show egui demo windows");
-                ui.checkbox(
-                    &mut draw_primitives_after_egui,
-                    "Draw macroquad primitives after egui",
-                );
-
-                ui.checkbox(&mut should_draw_grid, "Draw grid");
-
-                let response = ui.add(
-                    egui::Slider::new(pixels_per_point.as_mut().unwrap(), 0.75..=3.0)
-                        .logarithmic(true),
-                );
-
-                ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0).logarithmic(true));
-
-                // Don't change scale while dragging the slider
-                if response.drag_released() {
-                    egui_ctx.set_pixels_per_point(pixels_per_point.unwrap());
-                }
-            });
-
-            // add a transparent overlay on top of macroquad primitives
-            // let my_frame = egui::containers::Frame::none().fill(egui::Color32::TRANSPARENT);
-            // egui::CentralPanel::default().frame(my_frame).show(egui_ctx, |ui| {
-            //     // make plot with grid
-            //     // center plot (x,y) at camera's (0,0)
-            //     let plot = egui::plot::Plot::new("debug_view_coordinates")
-            //                 .view_aspect(1.0)
-            //                 .allow_zoom(false)
-            //                 .allow_drag(false)
-            //                 .allow_scroll(false)
-            //                 .show_background(false);
-                
-            //     plot.show(ui, |plot_ui| {
-            //         // plot_ui.line(
-            //         //     Line::new(PlotPoints::from_explicit_callback(move |x| 1.0 * x,..,100,))
-            //         // )
-            //     });
-            // });
-        });
 
         // WASD camera movement
         let mut camera_velocity: Vec2 = Vec2::ZERO;
@@ -167,7 +124,96 @@ async fn main() {
             ..Default::default()
         };
 
+        let mouse_world_pos = camera.screen_to_world(macroquad::input::mouse_position().into());
+
         set_camera(&camera);
+
+        // draw egui
+
+        egui_macroquad::ui(|egui_ctx| {
+            if pixels_per_point.is_none() {
+                pixels_per_point = Some(egui_ctx.pixels_per_point());
+            }
+
+            if show_egui_demo_windows {
+                egui_demo_windows.ui(egui_ctx);
+            }
+
+            egui::Window::new("Options").show(egui_ctx, |ui| {
+                ui.checkbox(&mut show_egui_demo_windows, "Show egui demo windows");
+                ui.checkbox(
+                    &mut draw_primitives_after_egui,
+                    "Draw macroquad primitives after egui",
+                );
+
+                ui.checkbox(&mut should_draw_grid, "Draw grid");
+
+                let response = ui.add(
+                    egui::Slider::new(pixels_per_point.as_mut().unwrap(), 0.75..=3.0)
+                        .logarithmic(true),
+                );
+
+                ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0).logarithmic(true));
+
+                // show mouse position in world coordinates
+                let (mouse_x, mouse_y) = (mouse_world_pos.x, mouse_world_pos.y);
+                ui.label(format!("Mouse position: ({:.3}, {:.3})", mouse_x, mouse_y));
+
+                // show distance to path
+                let distance = main_path_sdf.sdf(mouse_x, mouse_y);
+                if let Some(d) = distance {
+                    mouse_sdf_history[i] = d;
+                    ui.label(format!("Distance to path: {:.3}", d));
+                } else {
+                    mouse_sdf_history[i] = 0.0;
+                    ui.label("Distance to path: N/A");
+                }
+                i = (i + 1) % mouse_sdf_history.len();
+                
+
+                // Don't change scale while dragging the slider
+                if response.drag_released() {
+                    egui_ctx.set_pixels_per_point(pixels_per_point.unwrap());
+                }
+            });
+
+            egui::Window::new("Plot").show(egui_ctx, |ui| {
+                let plot = egui::plot::Plot::new("debug_view_coordinates")
+                            .view_aspect(1.0)
+                            .allow_zoom(false)
+                            .allow_drag(false)
+                            .allow_scroll(false)
+                            .show_background(false)
+                            .include_y(2.0)
+                            .include_y(-2.0);
+                plot.show(ui, |plot_ui| {
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_ys_f32(&mouse_sdf_history))
+                            .color(egui::Color32::from_rgb(0, 0, 255))
+                            .name("Distance to path")
+                    )
+                });
+            });
+
+            // add a transparent overlay on top of macroquad primitives
+            // let my_frame = egui::containers::Frame::none().fill(egui::Color32::TRANSPARENT);
+            // egui::CentralPanel::default().frame(my_frame).show(egui_ctx, |ui| {
+            //     // make plot with grid
+            //     // center plot (x,y) at camera's (0,0)
+            //     let plot = egui::plot::Plot::new("debug_view_coordinates")
+            //                 .view_aspect(1.0)
+            //                 .allow_zoom(false)
+            //                 .allow_drag(false)
+            //                 .allow_scroll(false)
+            //                 .show_background(false);
+                
+            //     plot.show(ui, |plot_ui| {
+            //         // plot_ui.line(
+            //         //     Line::new(PlotPoints::from_explicit_callback(move |x| 1.0 * x,..,100,))
+            //         // )
+            //     });
+            // });
+        });
 
         if should_draw_grid {
             draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
