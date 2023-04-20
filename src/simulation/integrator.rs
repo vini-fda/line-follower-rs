@@ -9,12 +9,12 @@ pub trait Integrator<const N: usize> {
 
 /// Runge-Kutta 4th order integrator
 pub struct Rk4<F, const N: usize> 
-where F: Fn(f64, &Vector<N>) -> Vector<N> {
+where F: FnMut(f64, &Vector<N>) -> Vector<N> {
     system: OdeSystem<F, N>,
 }
 
 impl<F, const N: usize> Rk4<F, N> 
-where F: Fn(f64, &Vector<N>) -> Vector<N> {
+where F: FnMut(f64, &Vector<N>) -> Vector<N> {
     pub fn new(f: F, t: f64, x: Vector<N>) -> Self {
         Self {
             system: OdeSystem { t, x, f },
@@ -22,7 +22,7 @@ where F: Fn(f64, &Vector<N>) -> Vector<N> {
     }
 
     pub fn step(&mut self, dt: f64) {
-        let f = &self.system.f;
+        let f = &mut self.system.f;
         let t = self.system.t;
         let x = &self.system.x;
 
@@ -52,13 +52,13 @@ impl<const N:usize> Integrator<N> for Rk4<fn(f64, &Vector<N>) -> Vector<N>, N> {
 
 /// Verlet integrator
 pub struct Verlet<F, const N: usize>
- where F: Fn(f64, &Vector<N>) -> Vector<N> {
+ where F: FnMut(f64, &Vector<N>) -> Vector<N> {
     system: OdeSystem<F, N>,
     x_prev: Vector<N>,
 }
 
 impl<F, const N: usize> Verlet<F, N> 
-where F: Fn(f64, &Vector<N>) -> Vector<N> {
+where F: FnMut(f64, &Vector<N>) -> Vector<N> {
     pub fn new(f: F, t: f64, x: Vector<N>) -> Self {
         Self {
             system: OdeSystem { t, x, f },
@@ -67,7 +67,7 @@ where F: Fn(f64, &Vector<N>) -> Vector<N> {
     }
 
     pub fn step(&mut self, dt: f64) {
-        let f = &self.system.f;
+        let f = &mut self.system.f;
         let t = self.system.t;
         let x = &self.system.x;
         let x_prev = &self.x_prev;

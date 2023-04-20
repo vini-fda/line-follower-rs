@@ -141,10 +141,12 @@ async fn main() {
     let mut wr_history = [0.0f32; 400];
     let mut wr_i = 0;
 
+    let mut prev_t = 0.0;
+    let mut prev_error = 0.0;
     let main_path_sdf = predefined_closed_path_sdf();
 
-    let robot_dynamics = |_: f64, x: &Vector<7>| {
-        let (x, y, theta, wl, dwl, wr, dwr) = (x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
+    let robot_dynamics = |t: f64, x: &Vector<8>| {
+        let (x, y, theta, wl, dwl, wr, dwr, int_error) = (x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
         const ROBOT_WHEEL_RADIUS: f64 = 0.04;
         const ROBOT_SIDE_LENGTH: f64 = 0.1;
 
@@ -178,21 +180,32 @@ async fn main() {
                 sensor_distances[i] = 1e10;
             }
         }
+
+        const KP: f64 = 0.8;
+        const KI: f64 = 0.2;
+        const KD: f64 = 1.5;
         
         // estimate the robot's angle relative to the track 
         // (i.e. the error in theta) by using the sensor array data
         let error_estimate = find_theta(&sensor_distances, MAX_SENSOR_DISTANCE, ROBOT_SIDE_LENGTH / 2.0);
-        let desired_dtheta = 0.8 * error_estimate;
+        let deriv_error = if t > prev_t {
+            (error_estimate - prev_error) / (t - prev_t)
+        } else {
+            0.0
+        };
+         
+        prev_error = error_estimate;
+        prev_t = t;
+        let desired_dtheta = KP * error_estimate + KI * int_error + KD * deriv_error;
         let k = ROBOT_SIDE_LENGTH * (B*R + K*K) / (K * ROBOT_WHEEL_RADIUS);
         let u = 5.0;
         let v = k * desired_dtheta;
         let ul = (u - v) / 2.0;
         let ur = (u + v) / 2.0;
-        // panic if ul is NaN
-        if ul.is_nan() {
-            panic!("ul is NaN");
+
+        if ur.is_nan() || ul.is_nan() {
+            panic!("nan");
         }
-        println!("ul = {:.3}, ur = {:.3}", ul, ur);
 
         const J: f64 = 0.1;
         const B: f64 = 0.1;
@@ -213,10 +226,10 @@ async fn main() {
         let d_wr = dwr;
         let d_dwr = (ur - c1 * dwr - c2 * wr) / c0;
 
-        //(x, y, theta, wl, dwl, wr, dwr)
-        Vector::<7>::from_column_slice(&[d_x, d_y, d_theta, d_wl, d_dwl, d_wr, d_dwr])
+        //(x, y, theta, wl, dwl, wr, dwr, int_error)
+        Vector::<8>::from_column_slice(&[d_x, d_y, d_theta, d_wl, d_dwl, d_wr, d_dwr, error_estimate])
     };
-    let initial_condition = Vector::<7>::from_column_slice(&[0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
+    let initial_condition = Vector::<8>::from_column_slice(&[0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0]);
     let mut robot_integrator = Rk4::new(robot_dynamics, 0.0, initial_condition);
 
     
