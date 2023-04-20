@@ -34,6 +34,10 @@ where F: Fn(f64, &Vector<N>) -> Vector<N> {
         self.system.x += dt * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0;
         self.system.t += dt;
     }
+
+    pub fn get_state(&self) -> Vector<N> {
+        self.system.x
+    }
 }
 
 impl<const N:usize> Integrator<N> for Rk4<fn(f64, &Vector<N>) -> Vector<N>, N> {

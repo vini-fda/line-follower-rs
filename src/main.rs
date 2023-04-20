@@ -19,12 +19,13 @@ fn window_conf() -> Conf {
 }
 
 fn draw_robot(x: f32, y: f32, angle: f32, color: Color) {
+    let angle = angle - 90.0;
     let w = 0.1;
     let r = w / 2f32.sqrt();
     
     let (cos_t, sin_t) = ((angle * PI / 180.0).cos(), (angle * PI / 180.0).sin());
     let l = 1.1*w;
-    draw_line(l*0.5*(cos_t - sin_t), l*0.5*(cos_t + sin_t), -l*0.5*(cos_t + sin_t), l*0.5*(cos_t - sin_t), 0.02, BLUE);
+    draw_line(x + l*0.5*(cos_t - sin_t), y + l*0.5*(cos_t + sin_t), x -l*0.5*(cos_t + sin_t), y + l*0.5*(cos_t - sin_t), 0.02, BLUE);
     draw_poly(x, y, 4, r, angle + 45.0, color);
 }
 
@@ -84,7 +85,10 @@ fn find_theta(y: &[f64; 5], l: f64, d: f64) -> f64 {
         }
     }
     if increasing {
-        return ((y[4] - y[0]) / l).acos();
+        let m = (y[4] - y[0]) / l;
+        if m.abs() <= 1.0 {
+            return m.acos();
+        }
     }
     
     let mut decreasing = true;
@@ -97,7 +101,10 @@ fn find_theta(y: &[f64; 5], l: f64, d: f64) -> f64 {
     }
 
     if decreasing {
-        return ((y[0] - y[4]) / l).acos();
+        let m = (y[0] - y[4]) / l;
+        if m.abs() <= 1.0 {
+            return m.acos();
+        }
     }
 
     if (y[4] - y[0]).abs() < 1e-6 {
@@ -127,6 +134,12 @@ async fn main() {
     // sample once per frame
     let mut mouse_sdf_history = [0.0f32; 400];
     let mut i = 0;
+
+    let mut wl_history = [0.0f32; 400];
+    let mut wl_i = 0;
+
+    let mut wr_history = [0.0f32; 400];
+    let mut wr_i = 0;
 
     let main_path_sdf = predefined_closed_path_sdf();
 
@@ -169,12 +182,17 @@ async fn main() {
         // estimate the robot's angle relative to the track 
         // (i.e. the error in theta) by using the sensor array data
         let error_estimate = find_theta(&sensor_distances, MAX_SENSOR_DISTANCE, ROBOT_SIDE_LENGTH / 2.0);
-        let desired_dtheta = -0.1 * error_estimate;
+        let desired_dtheta = 0.8 * error_estimate;
         let k = ROBOT_SIDE_LENGTH * (B*R + K*K) / (K * ROBOT_WHEEL_RADIUS);
-        let u = 1.0;
+        let u = 5.0;
         let v = k * desired_dtheta;
         let ul = (u - v) / 2.0;
         let ur = (u + v) / 2.0;
+        // panic if ul is NaN
+        if ul.is_nan() {
+            panic!("ul is NaN");
+        }
+        println!("ul = {:.3}, ur = {:.3}", ul, ur);
 
         const J: f64 = 0.1;
         const B: f64 = 0.1;
@@ -182,19 +200,24 @@ async fn main() {
         const L: f64 = 0.1;
         const K: f64 = 0.1;
 
+        let c0: f64 = 1.0;
+        let c1: f64 = 1.414;
+        let c2: f64 = 1.0;
+
         let speed = ROBOT_WHEEL_RADIUS * (wl + wr) / 2.0;
         let d_theta = ROBOT_WHEEL_RADIUS * (wr - wl) / ROBOT_SIDE_LENGTH;
-        let d_x = speed * d_theta.cos();
-        let d_y = speed * d_theta.sin();
+        let d_x = speed * theta.cos();
+        let d_y = speed * theta.sin();
         let d_wl = dwl;
-        let d_dwl = (K * ul - (J*R + B*L) * dwl - (B*R + K*K) * wl) / (J*L);
+        let d_dwl = (ul - c1 * dwl - c2 * wl) / c0;
         let d_wr = dwr;
-        let d_dwr = (K * ur - (J*R + B*L) * dwr - (B*R + K*K) * wr) / (J*L);
+        let d_dwr = (ur - c1 * dwr - c2 * wr) / c0;
 
+        //(x, y, theta, wl, dwl, wr, dwr)
         Vector::<7>::from_column_slice(&[d_x, d_y, d_theta, d_wl, d_dwl, d_wr, d_dwr])
     };
-    let initial_condition = Vector::<7>::from_column_slice(&[0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0]);
-    let mut robot_integrator = Verlet::new(robot_dynamics, 0.0, initial_condition);
+    let initial_condition = Vector::<7>::from_column_slice(&[0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
+    let mut robot_integrator = Rk4::new(robot_dynamics, 0.0, initial_condition);
 
     
 
@@ -304,17 +327,49 @@ async fn main() {
                     )
                 });
             });
+
+            egui::Window::new("Omega_l plot").show(egui_ctx, |ui| {
+                let plot = egui::plot::Plot::new("debug_view_coordinates")
+                            .view_aspect(1.0)
+                            .allow_zoom(false)
+                            .allow_drag(false)
+                            .allow_scroll(false)
+                            .show_background(false)
+                            .include_y(10.0)
+                            .include_y(-10.0);
+                plot.show(ui, |plot_ui| {
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_ys_f32(&wl_history))
+                            .color(egui::Color32::from_rgb(20, 200, 255))
+                            .name("wl")
+                    );
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_ys_f32(&wr_history))
+                            .color(egui::Color32::from_rgb(200, 20, 255))
+                            .name("wr")
+                    );
+                    // plot_ui.line(
+                    //     Line::new(PlotPoints::from_ys_f32(&[0.5; 400]))
+                    //         .color(egui::Color32::from_rgb(255, 255, 0))
+                    //         .name("ref")
+                    // );
+                });
+            });
         });
 
         if should_draw_grid {
             draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
         }
         
-        draw_path(&main_path, RED);
-        draw_primitives();
+        draw_path(&main_path, BLACK);
         robot_integrator.step(1.0/60.0);
         let sim_result = robot_integrator.get_state();
-        draw_robot(sim_result[0] as f32, sim_result[1] as f32, sim_result[2] as f32, Color::from_rgba(255, 0, 255, 255));
+        wl_history[wl_i] = sim_result[3] as f32;
+        wl_i = (wl_i + 1) % wl_history.len();
+
+        wr_history[wr_i] = sim_result[5] as f32;
+        wr_i = (wr_i + 1) % wl_history.len();
+        draw_robot(sim_result[0] as f32, sim_result[1] as f32, sim_result[2] as f32 * 180.0 / PI, RED);
         egui_macroquad::draw();
 
         next_frame().await
