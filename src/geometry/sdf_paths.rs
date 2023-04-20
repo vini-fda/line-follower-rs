@@ -1,6 +1,6 @@
 use num::Float;
 use crate::math_utils::{distance, cross_product, dot_product};
-use std::f32::consts::PI;
+use std::f64::consts::PI;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -22,11 +22,11 @@ pub struct ArcPath<F: Float> {
 impl<F> ArcPath<F> where F: Float + std::fmt::Display {
     fn new(x_0: F, y_0: F, r: F, theta_0: F, theta_1: F, direction: Direction) -> Self {
         let delta_t = theta_1 - theta_0;
-        //let EPSILON = F::from(1e-6).unwrap();
-        println!("delta_t: {}", delta_t);
-        // sin and cos
-        println!("sin: {}", delta_t.sin());
-        println!("cos: {}", delta_t.cos());
+        // //let EPSILON = F::from(1e-6).unwrap();
+        // println!("delta_t: {}", delta_t);
+        // // sin and cos
+        // println!("sin: {}", delta_t.sin());
+        // println!("cos: {}", delta_t.cos());
         match direction {
             Direction::Convex => assert!(delta_t.sin() >= F::zero() && delta_t != F::zero(), "theta_0 must come before theta_1 (for a convex arc, we consider the counter-clockwise direction as positive)"),
             Direction::Concave => assert!(delta_t.sin() <= F::zero() && delta_t != F::zero(), "theta_0 must come after theta_1 (for a concave arc, we consider the clockwise direction as positive)"),
@@ -46,11 +46,11 @@ impl<F> ArcPath<F> where F: Float + std::fmt::Display {
     }
 
     fn within_bounds(&self, x: F, y: F) -> bool {
-        if (self.x_0 - F::from(7.0).unwrap()).abs() <= F::from(1e-3).unwrap() && (self.y_0 + F::from(9.0).unwrap()).abs() <= F::from(1e-3).unwrap() {
-            println!("x: {}, y: {}", x, y);
-            //println!("extremal_0: {:?}", self.extremal_0);
-            //println!("extremal_1: {:?}", self.extremal_1);
-        }
+        // if (self.x_0 - F::from(7.0).unwrap()).abs() <= F::from(1e-3).unwrap() && (self.y_0 + F::from(9.0).unwrap()).abs() <= F::from(1e-3).unwrap() {
+        //     println!("x: {}, y: {}", x, y);
+        //     //println!("extremal_0: {:?}", self.extremal_0);
+        //     //println!("extremal_1: {:?}", self.extremal_1);
+        // }
         let ord0 = cross_product(self.extremal_0.0 - self.x_0, self.extremal_0.1 - self.y_0, x - self.x_0, y - self.y_0);
         let ord1 = cross_product(x - self.x_0, y - self.y_0, self.extremal_1.0 - self.x_0, self.extremal_1.1 - self.y_0);
         let b = ord0 >= F::zero() && ord1 >= F::zero();
@@ -71,9 +71,9 @@ impl<F> SDF<F> for ArcPath<F> where F: Float + std::fmt::Display {
         if self.direction == Direction::Concave {
             signed_dist_circ = -signed_dist_circ;
         }
-        println!("mouse coord (x, y) = ({:.3}, {:.3})", x, y);
-        println!("center coord (x, y) = ({:.3}, {:.3})", self.x_0, self.y_0);
-        println!("signed_dist_circ: {}", signed_dist_circ);
+        // println!("mouse coord (x, y) = ({:.3}, {:.3})", x, y);
+        // println!("center coord (x, y) = ({:.3}, {:.3})", self.x_0, self.y_0);
+        // println!("signed_dist_circ: {}", signed_dist_circ);
         Some(signed_dist_circ)
     }
 }
@@ -164,8 +164,8 @@ impl<F> SDF<F> for ClosedPath<F> where F: Float + std::fmt::Display {
                 ((x_best, y_best), sd)
             }
         });
-        println!("best circle coord (x, y) = ({:.3}, {:.3})", x_best, y_best);
-        println!("best circle sd: {}", sd_circle);
+        // println!("best circle coord (x, y) = ({:.3}, {:.3})", x_best, y_best);
+        // println!("best circle sd: {}", sd_circle);
 
         let ((x_best, y_best), sd_line) = self.line_subpaths.iter().fold(((F::infinity(), F::infinity()), F::infinity()), |((x_best, y_best), sd), line_subpath| {
             if let Some(signed_dist) = line_subpath.sdf(x, y) {
@@ -179,8 +179,8 @@ impl<F> SDF<F> for ClosedPath<F> where F: Float + std::fmt::Display {
             }
         });
 
-        println!("best line coord (x, y) = ({:.3}, {:.3})", x_best, y_best);
-        println!("best line sd: {}", sd_line);
+        // println!("best line coord (x, y) = ({:.3}, {:.3})", x_best, y_best);
+        // println!("best line sd: {}", sd_line);
 
         if sd_circle.abs() < sd_line.abs() {
             Some(sd_circle)
@@ -191,7 +191,7 @@ impl<F> SDF<F> for ClosedPath<F> where F: Float + std::fmt::Display {
     }
 }
 
-pub fn predefined_closed_path_sdf() -> ClosedPath<f32> {
+pub fn predefined_closed_path_sdf() -> ClosedPath<f64> {
     ClosedPath::new(
         vec![
             ArcPath::new(8.0, -2.0, 2.0, 0.0, PI / 2.0, Direction::Convex),

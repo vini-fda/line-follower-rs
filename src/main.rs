@@ -1,10 +1,14 @@
 use egui::{Color32, plot::{Line, PlotPoints}};
 use line_follower_rs::math_utils::lattice_points;
 use macroquad::prelude::*;
+use nalgebra::Vector2;
 use std::f32::consts::PI;
 use line_follower_rs::geometry::interpolated_paths::{Path, predefined_closed_path};
 use line_follower_rs::geometry::sdf_paths::{SDF, predefined_closed_path_sdf};
+use line_follower_rs::simulation::integrator::{Integrator, Rk4, Verlet};
+use line_follower_rs::simulation::ode_system::{OdeSystem, Vector};
 use itertools::Itertools;
+use nalgebra::Rotation2;
 
 fn window_conf() -> Conf {
     Conf {
@@ -68,6 +72,42 @@ fn draw_path(path: &Path<f32>, color: Color) {
     }
 }
 
+#[inline(always)]
+fn find_theta(y: &[f64; 5], l: f64, d: f64) -> f64 {
+    // check if ys is strictly increasing or decreasing
+    let mut increasing = true;
+
+    for i in 0..y.len() - 1 {
+        if y[i] > y[i + 1] {
+            increasing = false;
+            break;
+        }
+    }
+    if increasing {
+        return ((y[4] - y[0]) / l).acos();
+    }
+    
+    let mut decreasing = true;
+
+    for i in 0..y.len() - 1 {
+        if y[i] < y[i + 1] {
+            decreasing = false;
+            break;
+        }
+    }
+
+    if decreasing {
+        return ((y[0] - y[4]) / l).acos();
+    }
+
+    if (y[4] - y[0]).abs() < 1e-6 {
+        return 0.0;
+    }
+
+    let t = y[0] / (y[4] - y[0]);
+    ((0.5 + t) / d).atan()
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut show_egui_demo_windows = false;
@@ -85,13 +125,81 @@ async fn main() {
     let mut camera_center: Vec2 = Vec2::ZERO;
 
     // sample once per frame
-    let mut mouse_sdf_history = [0.0; 400];
+    let mut mouse_sdf_history = [0.0f32; 400];
     let mut i = 0;
+
+    let main_path_sdf = predefined_closed_path_sdf();
+
+    let robot_dynamics = |_: f64, x: &Vector<7>| {
+        let (x, y, theta, wl, dwl, wr, dwr) = (x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
+        const ROBOT_WHEEL_RADIUS: f64 = 0.04;
+        const ROBOT_SIDE_LENGTH: f64 = 0.1;
+
+        const SENSOR_ARRAY_LENGTH: f64 = ROBOT_SIDE_LENGTH * 1.1;
+        const SENSOR_ARRAY_SEPARATION: f64 = SENSOR_ARRAY_LENGTH / 5.0;
+        const MAX_SENSOR_DISTANCE: f64 = 4.0 * SENSOR_ARRAY_SEPARATION / 5.0;
+        const SENSOR_DISTANCE_TO_ROBOT_CENTER: f64 = ROBOT_SIDE_LENGTH * 3.0 / 5.0;
+
+        // we initially consider the robot pointing rightward, so the sensor array is vertical (x constant)
+        let mut sensor_positions = [
+            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, 2.0 * SENSOR_ARRAY_SEPARATION),
+            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, SENSOR_ARRAY_SEPARATION),
+            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, 0.0),
+            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, -SENSOR_ARRAY_SEPARATION),
+            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, -2.0 * SENSOR_ARRAY_SEPARATION),
+        ];
+
+        // now we rotate the sensor array by theta counter-clockwise
+        // and translate it by (x, y)
+        for p in sensor_positions.iter_mut() {
+            let rotation = Rotation2::new(theta);
+            let rotated = rotation * (*p);
+            *p = Vector2::<f64>::new(x, y) + rotated;
+        }
+
+        let mut sensor_distances = [0.0f64; 5];
+        for i in 0..5 {
+            if let Some(d) = main_path_sdf.sdf(sensor_positions[i].x, sensor_positions[i].y) {
+                sensor_distances[i] = d.abs();
+            } else {
+                sensor_distances[i] = 1e10;
+            }
+        }
+        
+        // estimate the robot's angle relative to the track 
+        // (i.e. the error in theta) by using the sensor array data
+        let error_estimate = find_theta(&sensor_distances, MAX_SENSOR_DISTANCE, ROBOT_SIDE_LENGTH / 2.0);
+        let desired_dtheta = -0.1 * error_estimate;
+        let k = ROBOT_SIDE_LENGTH * (B*R + K*K) / (K * ROBOT_WHEEL_RADIUS);
+        let u = 1.0;
+        let v = k * desired_dtheta;
+        let ul = (u - v) / 2.0;
+        let ur = (u + v) / 2.0;
+
+        const J: f64 = 0.1;
+        const B: f64 = 0.1;
+        const R: f64 = 0.03;
+        const L: f64 = 0.1;
+        const K: f64 = 0.1;
+
+        let speed = ROBOT_WHEEL_RADIUS * (wl + wr) / 2.0;
+        let d_theta = ROBOT_WHEEL_RADIUS * (wr - wl) / ROBOT_SIDE_LENGTH;
+        let d_x = speed * d_theta.cos();
+        let d_y = speed * d_theta.sin();
+        let d_wl = dwl;
+        let d_dwl = (K * ul - (J*R + B*L) * dwl - (B*R + K*K) * wl) / (J*L);
+        let d_wr = dwr;
+        let d_dwr = (K * ur - (J*R + B*L) * dwr - (B*R + K*K) * wr) / (J*L);
+
+        Vector::<7>::from_column_slice(&[d_x, d_y, d_theta, d_wl, d_dwl, d_wr, d_dwr])
+    };
+    let initial_condition = Vector::<7>::from_column_slice(&[0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0]);
+    let mut robot_integrator = Verlet::new(robot_dynamics, 0.0, initial_condition);
 
     
 
     let main_path = predefined_closed_path();
-    let main_path_sdf = predefined_closed_path_sdf();
+    
 
     loop {
         clear_background(WHITE);
@@ -161,9 +269,9 @@ async fn main() {
                 ui.label(format!("Mouse position: ({:.3}, {:.3})", mouse_x, mouse_y));
 
                 // show distance to path
-                let distance = main_path_sdf.sdf(mouse_x, mouse_y);
+                let distance = main_path_sdf.sdf(mouse_x as f64, mouse_y as f64);
                 if let Some(d) = distance {
-                    mouse_sdf_history[i] = d;
+                    mouse_sdf_history[i] = d as f32;
                     ui.label(format!("Distance to path: {:.3}", d));
                 } else {
                     mouse_sdf_history[i] = 0.0;
@@ -196,25 +304,6 @@ async fn main() {
                     )
                 });
             });
-
-            // add a transparent overlay on top of macroquad primitives
-            // let my_frame = egui::containers::Frame::none().fill(egui::Color32::TRANSPARENT);
-            // egui::CentralPanel::default().frame(my_frame).show(egui_ctx, |ui| {
-            //     // make plot with grid
-            //     // center plot (x,y) at camera's (0,0)
-            //     let plot = egui::plot::Plot::new("debug_view_coordinates")
-            //                 .view_aspect(1.0)
-            //                 .allow_zoom(false)
-            //                 .allow_drag(false)
-            //                 .allow_scroll(false)
-            //                 .show_background(false);
-                
-            //     plot.show(ui, |plot_ui| {
-            //         // plot_ui.line(
-            //         //     Line::new(PlotPoints::from_explicit_callback(move |x| 1.0 * x,..,100,))
-            //         // )
-            //     });
-            // });
         });
 
         if should_draw_grid {
@@ -222,13 +311,11 @@ async fn main() {
         }
         
         draw_path(&main_path, RED);
-        if !draw_primitives_after_egui {
-            draw_primitives();
-        }
+        draw_primitives();
+        robot_integrator.step(1.0/60.0);
+        let sim_result = robot_integrator.get_state();
+        draw_robot(sim_result[0] as f32, sim_result[1] as f32, sim_result[2] as f32, Color::from_rgba(255, 0, 255, 255));
         egui_macroquad::draw();
-        if draw_primitives_after_egui {
-            draw_primitives();
-        }
 
         next_frame().await
     }
