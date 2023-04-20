@@ -1,12 +1,12 @@
-use egui::{Color32, plot::{Line, PlotPoints}};
+use egui::plot::{Line, PlotPoints};
 use line_follower_rs::math_utils::lattice_points;
 use macroquad::prelude::*;
 use nalgebra::Vector2;
 use std::f32::consts::PI;
 use line_follower_rs::geometry::interpolated_paths::{Path, predefined_closed_path};
 use line_follower_rs::geometry::sdf_paths::{SDF, predefined_closed_path_sdf};
-use line_follower_rs::simulation::integrator::{Integrator, Rk4, Verlet};
-use line_follower_rs::simulation::ode_system::{OdeSystem, Vector};
+use line_follower_rs::ode_solver::integrator::Rk4;
+use line_follower_rs::ode_solver::ode_system::Vector;
 use itertools::Itertools;
 use nalgebra::Rotation2;
 
@@ -359,9 +359,9 @@ async fn main() {
                             .allow_zoom(false)
                             .allow_drag(false)
                             .allow_scroll(false)
-                            .show_background(false)
-                            .include_y(10.0)
-                            .include_y(-10.0);
+                            .show_background(false);
+                            // .include_y(10.0)
+                            // .include_y(-10.0);
                 plot.show(ui, |plot_ui| {
                     plot_ui.line(
                         Line::new(PlotPoints::from_ys_f32(&wl_history))
