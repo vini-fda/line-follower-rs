@@ -14,6 +14,7 @@ egui_demo_lib = "0.21.0"
 num = "0.4.0"
 itertools = "0.10.5"
 nalgebra = "0.32.2"
+cmaes = "0.2.1"
 
 [profile.release]
 opt-level = 2

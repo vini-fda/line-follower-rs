@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nalgebra::{Rotation2, Vector2};
 
 use crate::geometry::sdf_paths::{predefined_closed_path_sdf, ClosedPath, SDF};
@@ -37,16 +39,13 @@ pub struct RobotSimulation {
     >,
     state: Vector<NUM_STATES>,
     controls: Vector<NUM_CONTROLS>,
-    path: ClosedPath<f64>,
+    path: Arc<ClosedPath<f64>>,
     prev_error: f64,
     int_error: f64,
+    kp: f64,
+    ki: f64,
+    kd: f64,
     time: f64,
-}
-
-impl Default for RobotSimulation {
-    fn default() -> Self {
-        Self::new(Vector::<NUM_STATES>::zeros())
-    }
 }
 
 impl RobotSimulation {
@@ -64,11 +63,11 @@ impl RobotSimulation {
         self.int_error += error_estimate * dt;
 
         // PID Constants
-        const KP: f64 = 0.0003;
-        const KI: f64 = 0.0006;
-        const KD: f64 = 0.009;
+        // const KP: f64 = 0.0003;
+        // const KI: f64 = 0.0006;
+        // const KD: f64 = 0.009;
         // u(t) = Kp * e(t) + Ki * \int e(t) dt + Kd * \frac{de(t)}{dt}
-        let desired_dtheta = KP * error_estimate + KI * self.int_error + KD * deriv_error;
+        let desired_dtheta = self.kp * error_estimate + self.ki * self.int_error + self.kd * deriv_error;
         let k = ROBOT_SIDE_LENGTH * C2 / ROBOT_WHEEL_RADIUS;
         let desired_speed = 7.5;
         let v = k * desired_dtheta;
@@ -87,7 +86,7 @@ impl RobotSimulation {
         self.time
     }
 
-    pub fn new(x0: Vector<NUM_STATES>) -> Self {
+    pub fn new(x0: Vector<NUM_STATES>, kp: f64, ki: f64, kd: f64, path: &Arc<ClosedPath<f64>>) -> Self {
         let x = x0;
         let u = Vector::<NUM_CONTROLS>::zeros();
         let integrator = Rk4::new(
@@ -96,16 +95,18 @@ impl RobotSimulation {
             0.0,
             x,
         );
-        let path = predefined_closed_path_sdf();
 
         Self {
             integrator,
             state: x,
             controls: u,
-            path,
+            path: path.clone(),
             prev_error: 0.0,
             int_error: 0.0,
             time: 0.0,
+            kp,
+            ki,
+            kd,
         }
     }
 

@@ -1,11 +1,14 @@
 use egui::plot::{Line, PlotPoints};
 use itertools::Itertools;
 use line_follower_rs::geometry::interpolated_paths::{predefined_closed_path, Path};
+use line_follower_rs::geometry::sdf_paths::predefined_closed_path_sdf;
 use line_follower_rs::math_utils::lattice_points;
 use line_follower_rs::ode_solver::ode_system::Vector;
+use line_follower_rs::simulation::optimizer::RobotOptimizer;
 use line_follower_rs::simulation::robot::RobotSimulation;
 use macroquad::prelude::*;
 use std::f32::consts::PI;
+use std::sync::Arc;
 
 fn window_conf() -> Conf {
     Conf {
@@ -97,6 +100,13 @@ fn draw_path(path: &Path<f32>, color: Color) {
     }
 }
 
+// PID Constants
+const KP: f64 = -0.12596321152455078;//0.0003;
+const KI: f64 = 0.000057067377306653065;//0.0006;
+const KD: f64 = 0.14765343308373594;//0.009;
+
+// Kp: , Ki: , Kd: 
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut show_egui_demo_windows = false;
@@ -124,7 +134,8 @@ async fn main() {
     let mut wr_i = 0;
 
     let initial_condition = Vector::<7>::from_column_slice(&[0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
-    let mut robot_sim = RobotSimulation::new(initial_condition);
+    let main_path_sdf = Arc::new(predefined_closed_path_sdf());
+    let mut robot_sim = RobotSimulation::new(initial_condition, KP, KI, KD, &main_path_sdf.clone());
 
     let main_path = predefined_closed_path();
 
@@ -283,3 +294,10 @@ async fn main() {
         next_frame().await
     }
 }
+
+// fn main() {
+//     let main_path_sdf = Arc::new(predefined_closed_path_sdf());
+
+//     let best_ks = RobotOptimizer::new(200_000, 1.0 / 60.0, main_path_sdf).find_optimal_multithreaded();
+//     println!("best Kp: {}, Ki: {}, Kd: {}", best_ks[0], best_ks[1], best_ks[2]);
+// }
