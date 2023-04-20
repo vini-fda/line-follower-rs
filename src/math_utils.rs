@@ -7,7 +7,10 @@ pub struct FloatRange<F: Float> {
     curr: F,
 }
 
-impl<F> FloatRange<F> where F: Float {
+impl<F> FloatRange<F>
+where
+    F: Float,
+{
     pub fn new(start: F, end: F, step: F) -> Self {
         Self {
             start,
@@ -22,7 +25,10 @@ impl<F> FloatRange<F> where F: Float {
     }
 }
 
-impl<F> Iterator for FloatRange<F> where F: Float {
+impl<F> Iterator for FloatRange<F>
+where
+    F: Float,
+{
     type Item = F;
     fn next(&mut self) -> Option<Self::Item> {
         self.curr = self.curr + self.step;

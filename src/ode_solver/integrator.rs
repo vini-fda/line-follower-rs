@@ -2,19 +2,23 @@ use super::ode_system::OdeSystem;
 
 type Vector<const N: usize> = nalgebra::SVector<f64, N>;
 
-pub trait Integrator<const N: usize, const U:usize> {
+pub trait Integrator<const N: usize, const U: usize> {
     fn step(&mut self, dt: f64, u: &Vector<U>);
     fn get_state(&self) -> Vector<N>;
 }
 
 /// Runge-Kutta 4th order integrator
-pub struct Rk4<F, const N: usize, const U:usize> 
-where F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N> {
+pub struct Rk4<F, const N: usize, const U: usize>
+where
+    F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N>,
+{
     system: OdeSystem<F, N, U>,
 }
 
-impl<F, const N: usize, const U:usize> Rk4<F, N, U> 
-where F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N> {
+impl<F, const N: usize, const U: usize> Rk4<F, N, U>
+where
+    F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N>,
+{
     pub fn new(f: F, t: f64, x: Vector<N>) -> Self {
         Self {
             system: OdeSystem { t, x, f },
@@ -40,7 +44,9 @@ where F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N> {
     }
 }
 
-impl<const N:usize, const U:usize> Integrator<N, U> for Rk4<fn(f64, &Vector<N>, &Vector<U>) -> Vector<N>, N, U> {
+impl<const N: usize, const U: usize> Integrator<N, U>
+    for Rk4<fn(f64, &Vector<N>, &Vector<U>) -> Vector<N>, N, U>
+{
     fn step(&mut self, dt: f64, u: &Vector<U>) {
         self.step(dt, u);
     }
@@ -52,13 +58,17 @@ impl<const N:usize, const U:usize> Integrator<N, U> for Rk4<fn(f64, &Vector<N>, 
 
 /// Verlet integrator
 pub struct Verlet<F, const N: usize, const U: usize>
- where F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N> {
+where
+    F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N>,
+{
     system: OdeSystem<F, N, U>,
     x_prev: Vector<N>,
 }
 
-impl<F, const N: usize, const U:usize> Verlet<F, N, U> 
-where F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N> {
+impl<F, const N: usize, const U: usize> Verlet<F, N, U>
+where
+    F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N>,
+{
     pub fn new(f: F, t: f64, x: Vector<N>) -> Self {
         Self {
             system: OdeSystem { t, x, f },
@@ -83,7 +93,9 @@ where F: FnMut(f64, &Vector<N>, &Vector<U>) -> Vector<N> {
     }
 }
 
-impl<const N:usize, const U:usize> Integrator<N, U> for Verlet<fn(f64, &Vector<N>, &Vector<U>) -> Vector<N>, N, U> {
+impl<const N: usize, const U: usize> Integrator<N, U>
+    for Verlet<fn(f64, &Vector<N>, &Vector<U>) -> Vector<N>, N, U>
+{
     fn step(&mut self, dt: f64, u: &Vector<U>) {
         self.step(dt, u);
     }

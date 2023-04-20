@@ -1,5 +1,5 @@
+use crate::math_utils::{cross_product, distance, dot_product};
 use num::Float;
-use crate::math_utils::{distance, cross_product, dot_product};
 use std::f64::consts::PI;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,7 +19,10 @@ pub struct ArcPath<F: Float> {
     extremal_1: (F, F),
 }
 
-impl<F> ArcPath<F> where F: Float + std::fmt::Display {
+impl<F> ArcPath<F>
+where
+    F: Float + std::fmt::Display,
+{
     fn new(x_0: F, y_0: F, r: F, theta_0: F, theta_1: F, direction: Direction) -> Self {
         let delta_t = theta_1 - theta_0;
         // //let EPSILON = F::from(1e-6).unwrap();
@@ -51,8 +54,18 @@ impl<F> ArcPath<F> where F: Float + std::fmt::Display {
         //     //println!("extremal_0: {:?}", self.extremal_0);
         //     //println!("extremal_1: {:?}", self.extremal_1);
         // }
-        let ord0 = cross_product(self.extremal_0.0 - self.x_0, self.extremal_0.1 - self.y_0, x - self.x_0, y - self.y_0);
-        let ord1 = cross_product(x - self.x_0, y - self.y_0, self.extremal_1.0 - self.x_0, self.extremal_1.1 - self.y_0);
+        let ord0 = cross_product(
+            self.extremal_0.0 - self.x_0,
+            self.extremal_0.1 - self.y_0,
+            x - self.x_0,
+            y - self.y_0,
+        );
+        let ord1 = cross_product(
+            x - self.x_0,
+            y - self.y_0,
+            self.extremal_1.0 - self.x_0,
+            self.extremal_1.1 - self.y_0,
+        );
         let b = ord0 >= F::zero() && ord1 >= F::zero();
         match self.direction {
             Direction::Convex => b,
@@ -61,7 +74,10 @@ impl<F> ArcPath<F> where F: Float + std::fmt::Display {
     }
 }
 
-impl<F> SDF<F> for ArcPath<F> where F: Float + std::fmt::Display {
+impl<F> SDF<F> for ArcPath<F>
+where
+    F: Float + std::fmt::Display,
+{
     fn sdf(&self, x: F, y: F) -> Option<F> {
         if !self.within_bounds(x, y) {
             return None;
@@ -86,10 +102,16 @@ pub struct LinePath<F: Float> {
     pub length: F,
 }
 
-impl<F> LinePath<F> where F: Float {
+impl<F> LinePath<F>
+where
+    F: Float,
+{
     fn new(x_0: F, y_0: F, x_1: F, y_1: F) -> Self {
         let length = distance(x_0, y_0, x_1, y_1);
-        assert!(length != F::zero(), "the line path must have a non-zero length");
+        assert!(
+            length != F::zero(),
+            "the line path must have a non-zero length"
+        );
         Self {
             x_0,
             y_0,
@@ -100,12 +122,20 @@ impl<F> LinePath<F> where F: Float {
     }
 
     fn within_bounds(&self, x: F, y: F) -> bool {
-        let t = dot_product(x - self.x_0, y - self.y_0, self.x_1 - self.x_0, self.y_1 - self.y_0) / self.length;
+        let t = dot_product(
+            x - self.x_0,
+            y - self.y_0,
+            self.x_1 - self.x_0,
+            self.y_1 - self.y_0,
+        ) / self.length;
         t >= F::zero() && t <= self.length
     }
 }
 
-impl<F> SDF<F> for LinePath<F> where F: Float {
+impl<F> SDF<F> for LinePath<F>
+where
+    F: Float,
+{
     fn sdf(&self, x: F, y: F) -> Option<F> {
         if !self.within_bounds(x, y) {
             return None;
@@ -123,7 +153,12 @@ impl<F> SDF<F> for LinePath<F> where F: Float {
         // A x B = |A| |B| sin(theta)
         // then we divide by the length of the line path to get the signed distance (which is the height of the parallelogram)
         // d = A x B / |A|
-        let signed_dist = cross_product(x - self.x_0, y - self.y_0, self.x_1 - self.x_0, self.y_1 - self.y_0) / self.length;
+        let signed_dist = cross_product(
+            x - self.x_0,
+            y - self.y_0,
+            self.x_1 - self.x_0,
+            self.y_1 - self.y_0,
+        ) / self.length;
         Some(signed_dist)
     }
 }
@@ -133,7 +168,10 @@ pub struct ClosedPath<F: Float> {
     line_subpaths: Vec<LinePath<F>>,
 }
 
-impl<F> ClosedPath<F> where F: Float {
+impl<F> ClosedPath<F>
+where
+    F: Float,
+{
     fn new(circle_subpaths: Vec<ArcPath<F>>, line_subpaths: Vec<LinePath<F>>) -> Self {
         Self {
             circle_subpaths,
@@ -147,37 +185,46 @@ enum Path<F: Float + std::fmt::Display> {
     Line(LinePath<F>),
 }
 
-impl<F> SDF<F> for ClosedPath<F> where F: Float + std::fmt::Display {
+impl<F> SDF<F> for ClosedPath<F>
+where
+    F: Float + std::fmt::Display,
+{
     fn sdf(&self, x: F, y: F) -> Option<F> {
         if self.circle_subpaths.is_empty() && self.line_subpaths.is_empty() {
             return None;
         }
 
-        let ((x_best, y_best), sd_circle) = self.circle_subpaths.iter().fold(((F::infinity(), F::infinity()), F::infinity()), |((x_best, y_best), sd), circle_subpath| {
-            if let Some(signed_dist) = circle_subpath.sdf(x, y) {
-                if signed_dist.abs() < sd.abs() {
-                    ((circle_subpath.x_0, circle_subpath.y_0), signed_dist)
+        let ((x_best, y_best), sd_circle) = self.circle_subpaths.iter().fold(
+            ((F::infinity(), F::infinity()), F::infinity()),
+            |((x_best, y_best), sd), circle_subpath| {
+                if let Some(signed_dist) = circle_subpath.sdf(x, y) {
+                    if signed_dist.abs() < sd.abs() {
+                        ((circle_subpath.x_0, circle_subpath.y_0), signed_dist)
+                    } else {
+                        ((x_best, y_best), sd)
+                    }
                 } else {
                     ((x_best, y_best), sd)
                 }
-            } else {
-                ((x_best, y_best), sd)
-            }
-        });
+            },
+        );
         // println!("best circle coord (x, y) = ({:.3}, {:.3})", x_best, y_best);
         // println!("best circle sd: {}", sd_circle);
 
-        let ((x_best, y_best), sd_line) = self.line_subpaths.iter().fold(((F::infinity(), F::infinity()), F::infinity()), |((x_best, y_best), sd), line_subpath| {
-            if let Some(signed_dist) = line_subpath.sdf(x, y) {
-                if signed_dist.abs() < sd.abs() {
-                    ((line_subpath.x_0, line_subpath.y_0), signed_dist)
+        let ((x_best, y_best), sd_line) = self.line_subpaths.iter().fold(
+            ((F::infinity(), F::infinity()), F::infinity()),
+            |((x_best, y_best), sd), line_subpath| {
+                if let Some(signed_dist) = line_subpath.sdf(x, y) {
+                    if signed_dist.abs() < sd.abs() {
+                        ((line_subpath.x_0, line_subpath.y_0), signed_dist)
+                    } else {
+                        ((x_best, y_best), sd)
+                    }
                 } else {
                     ((x_best, y_best), sd)
                 }
-            } else {
-                ((x_best, y_best), sd)
-            }
-        });
+            },
+        );
 
         // println!("best line coord (x, y) = ({:.3}, {:.3})", x_best, y_best);
         // println!("best line sd: {}", sd_line);
@@ -187,7 +234,6 @@ impl<F> SDF<F> for ClosedPath<F> where F: Float + std::fmt::Display {
         } else {
             Some(sd_line)
         }
-        
     }
 }
 
@@ -196,10 +242,24 @@ pub fn predefined_closed_path_sdf() -> ClosedPath<f64> {
         vec![
             ArcPath::new(8.0, -2.0, 2.0, 0.0, PI / 2.0, Direction::Convex),
             ArcPath::new(8.0, -10.0, 2.0, -PI / 2.0, 0.0, Direction::Convex),
-            ArcPath::new(3.0, -11.0, 1.0, -3.0 * PI / 2.0, -PI / 2.0, Direction::Convex),
+            ArcPath::new(
+                3.0,
+                -11.0,
+                1.0,
+                -3.0 * PI / 2.0,
+                -PI / 2.0,
+                Direction::Convex,
+            ),
             ArcPath::new(7.0, -9.0, 1.0, 0.0, -PI / 2.0, Direction::Concave),
-            ArcPath::new(0.0, -2.0, 2.0, -3.0 * PI / 2.0, -PI / 2.0, Direction::Convex),
-        ], 
+            ArcPath::new(
+                0.0,
+                -2.0,
+                2.0,
+                -3.0 * PI / 2.0,
+                -PI / 2.0,
+                Direction::Convex,
+            ),
+        ],
         vec![
             LinePath::new(0.0, -4.0, 8.0, -4.0),
             LinePath::new(8.0, -4.0, 8.0, -9.0),
@@ -207,7 +267,8 @@ pub fn predefined_closed_path_sdf() -> ClosedPath<f64> {
             LinePath::new(3.0, -12.0, 8.0, -12.0),
             LinePath::new(10.0, -10.0, 10.0, -2.0),
             LinePath::new(8.0, 0.0, 0.0, 0.0),
-    ])
+        ],
+    )
 }
 
 pub trait SDF<F: Float> {
