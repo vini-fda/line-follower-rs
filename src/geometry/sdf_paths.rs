@@ -72,6 +72,40 @@ where
             Direction::Concave => !b,
         }
     }
+
+    pub fn point_at(&self, d: F) -> (F, F) {
+        // returns the point X on the path after traveling a distance d
+        // the point X is on the arc path 
+        // assumes that d is within the bounds of the arc path
+        let theta = match self.direction {
+            Direction::Convex => d / self.r,
+            Direction::Concave => -d / self.r,
+        };
+        let x = self.x_0 + self.r * (self.theta_0 + theta).cos();
+        let y = self.y_0 + self.r * (self.theta_0 + theta).sin();
+        (x, y)
+    }
+
+    pub fn tangent_at(&self, d: F) -> (F, F) {
+        // returns the tangent vector at the point X on the path after traveling a distance d
+        // the point X is on the arc path 
+        // assumes that d is within the bounds of the arc path
+        let theta = match self.direction {
+            Direction::Convex => d / self.r,
+            Direction::Concave => -d / self.r,
+        };
+        let x = -(self.theta_0 + theta).sin();
+        let y = (self.theta_0 + theta).cos();
+        if self.direction == Direction::Concave {
+            (-x, -y)
+        } else {
+            (x, y)
+        }
+    }
+
+    pub fn length(&self) -> F {
+        self.r * (self.theta_1 - self.theta_0).abs()
+    }
 }
 
 impl<F> SDF<F> for ArcPath<F>
@@ -130,6 +164,29 @@ where
         ) / self.length;
         t >= F::zero() && t <= self.length
     }
+
+    pub fn point_at(&self, d: F) -> (F, F) {
+        // returns the point X on the path after traveling a distance d
+        // the point X is on the line path (x_0, y_0) -> (x_1, y_1)
+        // assumes that d is within the bounds of the line path
+        let t = d / self.length;
+        let x = self.x_0 + t * (self.x_1 - self.x_0);
+        let y = self.y_0 + t * (self.y_1 - self.y_0);
+        (x, y)
+    }
+
+    pub fn tangent_at(&self, _d: F) -> (F, F) {
+        // returns the tangent vector at the point X on the path after traveling a distance d
+        // the point X is on the arc path 
+        // assumes that d is within the bounds of the arc path
+        let x = (self.x_1 - self.x_0) / self.length;
+        let y = (self.y_1 - self.y_0) / self.length;
+        (x, y)
+    }
+
+    pub fn length(&self) -> F {
+        self.length
+    }
 }
 
 impl<F> SDF<F> for LinePath<F>
@@ -163,26 +220,72 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct SubpathIndex<F> {
+    pub index: usize,
+    pub subpath_type: SubpathType,
+    pub start_d: F,
+}
+
 pub struct ClosedPath<F: Float> {
     circle_subpaths: Vec<ArcPath<F>>,
     line_subpaths: Vec<LinePath<F>>,
+    ordering: Vec<SubpathIndex<F>>,
 }
 
 impl<F> ClosedPath<F>
 where
-    F: Float,
+    F: Float + std::fmt::Display,
 {
-    fn new(circle_subpaths: Vec<ArcPath<F>>, line_subpaths: Vec<LinePath<F>>) -> Self {
+    fn new(circle_subpaths: Vec<ArcPath<F>>, line_subpaths: Vec<LinePath<F>>, ordering: Vec<SubpathIndex<F>>) -> Self {
         Self {
             circle_subpaths,
             line_subpaths,
+            ordering,
         }
     }
-}
 
-enum Path<F: Float + std::fmt::Display> {
-    Arc(ArcPath<F>),
-    Line(LinePath<F>),
+    pub fn point_at(&self, d: F) -> (F, F) {
+        // returns the point X on the path after traveling a distance d from the start
+        // the point X is on the path (x_0, y_0) -> (x_1, y_1)
+        let d = d % self.length();
+        // binary search for the subpath that contains the point (search by d)
+        let mut i = self.ordering.partition_point(|probe| probe.start_d < d);
+        i = i.saturating_sub(1);
+        let subpath_index = self.ordering[i];
+        let d = d - subpath_index.start_d;
+        match subpath_index.subpath_type {
+            SubpathType::ArcPath => self.circle_subpaths[subpath_index.index].point_at(d),
+            SubpathType::LinePath => self.line_subpaths[subpath_index.index].point_at(d),
+        }
+    }
+
+    pub fn tangent_at(&self, d: F) -> (F, F) {
+        // returns the tangent vector at the point X on the path after traveling a distance d
+        // the point X is on the path
+        // assumes that d is within the bounds of the arc path
+        let d = d % self.length();
+        // binary search for the subpath that contains the point (search by d)
+        let mut i = self.ordering.partition_point(|probe| probe.start_d < d);
+        i = i.saturating_sub(1);
+        let subpath_index = self.ordering[i];
+        let d = d - subpath_index.start_d;
+        match subpath_index.subpath_type {
+            SubpathType::ArcPath => self.circle_subpaths[subpath_index.index].tangent_at(d),
+            SubpathType::LinePath => self.line_subpaths[subpath_index.index].tangent_at(d),
+        }
+    }
+
+    pub fn length(&self) -> F {
+        let mut l = F::zero();
+        for subpath in self.circle_subpaths.iter() {
+            l = l + subpath.length();
+        }
+        for subpath in self.line_subpaths.iter() {
+            l = l + subpath.length();
+        }
+        l
+    }
 }
 
 impl<F> SDF<F> for ClosedPath<F>
@@ -240,8 +343,7 @@ where
 pub fn predefined_closed_path_sdf() -> ClosedPath<f64> {
     ClosedPath::new(
         vec![
-            ArcPath::new(8.0, -2.0, 2.0, 0.0, PI / 2.0, Direction::Convex),
-            ArcPath::new(8.0, -10.0, 2.0, -PI / 2.0, 0.0, Direction::Convex),
+            ArcPath::new(7.0, -9.0, 1.0, 0.0, -PI / 2.0, Direction::Concave),
             ArcPath::new(
                 3.0,
                 -11.0,
@@ -250,7 +352,8 @@ pub fn predefined_closed_path_sdf() -> ClosedPath<f64> {
                 -PI / 2.0,
                 Direction::Convex,
             ),
-            ArcPath::new(7.0, -9.0, 1.0, 0.0, -PI / 2.0, Direction::Concave),
+            ArcPath::new(8.0, -10.0, 2.0, -PI / 2.0, 0.0, Direction::Convex),
+            ArcPath::new(8.0, -2.0, 2.0, 0.0, PI / 2.0, Direction::Convex),
             ArcPath::new(
                 0.0,
                 -2.0,
@@ -268,7 +371,70 @@ pub fn predefined_closed_path_sdf() -> ClosedPath<f64> {
             LinePath::new(10.0, -10.0, 10.0, -2.0),
             LinePath::new(8.0, 0.0, 0.0, 0.0),
         ],
+        vec![
+            SubpathIndex {
+                index: 0,
+                start_d: 0.0,
+                subpath_type: SubpathType::LinePath,
+            },
+            SubpathIndex {
+                index: 1,
+                start_d: 8.0,
+                subpath_type: SubpathType::LinePath,
+            },
+            SubpathIndex {
+                index: 0,
+                start_d: 13.0,
+                subpath_type: SubpathType::ArcPath,
+            },
+            SubpathIndex {
+                index: 2,
+                start_d: 13.0 + 0.5 * PI,
+                subpath_type: SubpathType::LinePath,
+            },
+            SubpathIndex {
+                index: 1,
+                start_d: 17.0 + 0.5 * PI,
+                subpath_type: SubpathType::ArcPath,
+            },
+            SubpathIndex {
+                index: 3,
+                start_d: 17.0 + 1.5 * PI,
+                subpath_type: SubpathType::LinePath,
+            },
+            SubpathIndex {
+                index: 2,
+                start_d: 22.0 + 1.5 * PI,
+                subpath_type: SubpathType::ArcPath,
+            },
+            SubpathIndex {
+                index: 4,
+                start_d: 22.0 + 2.5 * PI,
+                subpath_type: SubpathType::LinePath,
+            },
+            SubpathIndex {
+                index: 3,
+                start_d: 30.0 + 2.5 * PI,
+                subpath_type: SubpathType::ArcPath,
+            },
+            SubpathIndex {
+                index: 5,
+                start_d: 30.0 + 3.5 * PI,
+                subpath_type: SubpathType::LinePath,
+            },
+            SubpathIndex {
+                index: 4,
+                start_d: 38.0 + 3.5 * PI,
+                subpath_type: SubpathType::ArcPath,
+            }
+        ]
     )
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SubpathType {
+    ArcPath,
+    LinePath,
 }
 
 pub trait SDF<F: Float> {

@@ -80,6 +80,26 @@ where
         self.xs.iter().zip(self.ys.iter()).map(|(&x, &y)| (x, y))
     }
 
+    pub fn point_at(&self, d: F) -> (F, F) {
+        // returns the point X on the path after traveling a distance d
+        let mut traveled = F::zero();
+        let mut i = 1;
+        while traveled < d {
+            let x_0 = self.xs[i - 1];
+            let y_0 = self.ys[i - 1];
+            let x_1 = self.xs[i];
+            let y_1 = self.ys[i];
+            let segment_length = ((x_1 - x_0).powi(2) + (y_1 - y_0).powi(2)).sqrt();
+            if traveled + segment_length > d {
+                let t = (d - traveled) / segment_length;
+                return (x_0 + t * (x_1 - x_0), y_0 + t * (y_1 - y_0));
+            }
+            traveled = traveled + segment_length;
+            i = (i + 1) & self.xs.len();
+        }
+        (self.xs[i - 1], self.ys[i - 1])
+    }
+
     pub fn length(&self) -> F {
         let mut length = F::zero();
         for i in 1..self.xs.len() {

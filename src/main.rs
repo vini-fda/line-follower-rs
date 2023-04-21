@@ -18,6 +18,10 @@ fn window_conf() -> Conf {
     }
 }
 
+fn draw_vector(x: f32, y: f32, dx: f32, dy: f32) {
+    draw_line(x, y, x + dx, y + dy, 0.01, GREEN);
+}
+
 fn draw_robot(x: f32, y: f32, angle: f32, color: Color) {
     let angle = angle - 90.0;
     let w = 0.1;
@@ -101,9 +105,10 @@ fn draw_path(path: &Path<f32>, color: Color) {
 }
 
 // PID Constants
-const KP: f64 = -0.12596321152455078;//0.0003;
-const KI: f64 = 0.000057067377306653065;//0.0006;
-const KD: f64 = 0.14765343308373594;//0.009;
+const KP: f64 = 0.0003;
+const KI: f64 = 0.00015;
+const KD: f64 = 0.004;
+const SPEED: f64 = 0.5;
 
 // Kp: , Ki: , Kd: 
 
@@ -121,7 +126,7 @@ async fn main() {
 
     const CAMERA_SPEED: f32 = 3.0e-2;
 
-    let mut camera_center: Vec2 = Vec2::ZERO;
+    let mut camera_center: Vec2 = [0.0, -4.0].into();
 
     // sample once per frame
     let mut robot_sdf_history = [0.0f32; 400];
@@ -133,9 +138,9 @@ async fn main() {
     let mut wr_history = [0.0f32; 400];
     let mut wr_i = 0;
 
-    let initial_condition = Vector::<7>::from_column_slice(&[0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
+    let initial_condition = Vector::<7>::from_column_slice(&[0.0, -4.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
     let main_path_sdf = Arc::new(predefined_closed_path_sdf());
-    let mut robot_sim = RobotSimulation::new(initial_condition, KP, KI, KD, &main_path_sdf.clone());
+    let mut robot_sim = RobotSimulation::new(initial_condition, KP, KI, KD, SPEED, main_path_sdf.clone());
 
     let main_path = predefined_closed_path();
 
@@ -289,6 +294,25 @@ async fn main() {
             robot_sim.get_state()[2] as f32 * 180.0 / PI,
             RED,
         );
+        let (xr, yr) = robot_sim.reference_point();
+        draw_circle(xr as f32, yr as f32, 0.05, RED);
+        let (xt, yt) = robot_sim.reference_tangent();
+        // draw tangent vector to reference point
+        draw_vector(
+            xr as f32,
+            yr as f32,
+            xt as f32 * 0.1,
+            yt as f32 * 0.1,
+        );
+        // draw robot direction estimate vector
+        let direction = robot_sim.robot_direction_estimate();
+        draw_vector(
+            robot_sim.get_state()[0] as f32,
+            robot_sim.get_state()[1] as f32,
+            direction[0] as f32 * 0.1,
+            direction[1] as f32 * 0.1,
+        );
+
         egui_macroquad::draw();
 
         next_frame().await
@@ -298,6 +322,6 @@ async fn main() {
 // fn main() {
 //     let main_path_sdf = Arc::new(predefined_closed_path_sdf());
 
-//     let best_ks = RobotOptimizer::new(200_000, 1.0 / 60.0, main_path_sdf).find_optimal_multithreaded();
-//     println!("best Kp: {}, Ki: {}, Kd: {}", best_ks[0], best_ks[1], best_ks[2]);
+//     let best_ks = RobotOptimizer::new(5_000, 1.0e-2, main_path_sdf).find_optimal_multithreaded();
+//     println!("best Kp: {}, Ki: {}, Kd: {}, speed: {}", best_ks[0], best_ks[1], best_ks[2], best_ks[3]);
 // }
