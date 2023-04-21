@@ -105,10 +105,10 @@ fn draw_path(path: &Path<f32>, color: Color) {
 }
 
 // PID Constants
-const KP: f64 = 0.0003;
-const KI: f64 = 0.00015;
-const KD: f64 = 0.004;
-const SPEED: f64 = 0.5;
+const KP: f64 = 12.0;
+const KI: f64 = 1.5;
+const KD: f64 = 4.0;
+const SPEED: f64 = 1.5;
 
 // Kp: , Ki: , Kd: 
 
@@ -305,7 +305,7 @@ async fn main() {
             yt as f32 * 0.1,
         );
         // draw robot direction estimate vector
-        let direction = robot_sim.robot_direction_estimate();
+        let direction = robot_sim.robot_projection_tangent();
         draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,

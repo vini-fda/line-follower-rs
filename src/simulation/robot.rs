@@ -16,6 +16,8 @@ const SENSOR_ARRAY_LENGTH: f64 = ROBOT_SIDE_LENGTH * 1.1;
 const SENSOR_ARRAY_SEPARATION: f64 = SENSOR_ARRAY_LENGTH / 5.0;
 const MAX_SENSOR_DISTANCE: f64 = 4.0 * SENSOR_ARRAY_SEPARATION / 5.0;
 const SENSOR_DISTANCE_TO_ROBOT_CENTER: f64 = ROBOT_SIDE_LENGTH * 3.0 / 5.0;
+// Track geometry
+const TRACK_WIDTH: f64 = 0.01;
 
 // Dynamical constants
 // DC Motor constants
@@ -84,6 +86,7 @@ impl RobotSimulation {
         // (i.e. the error in theta) by using the sensor array data
         let error_estimate = self.theta_error_estimate();
         let deriv_error = (error_estimate - self.prev_error) / dt;
+        self.prev_error = error_estimate;
         self.int_error += error_estimate * dt;
 
         // PID Constants
@@ -104,19 +107,18 @@ impl RobotSimulation {
     }
 
     pub fn theta_error_estimate(&self) -> f64 {
-        find_theta(
-            &self.sensor_distances(),
-            MAX_SENSOR_DISTANCE,
-            ROBOT_SIDE_LENGTH / 2.0,
-        )
-    }
+        // let vt = self.robot_projection_tangent();
+        // let (xt, yt) = (vt[0], vt[1]);
+        // let path_angle = yt.atan2(xt);
+        // path_angle - self.state[2]
+        self.robot_sdf_to_path()
 
-    pub fn robot_direction_estimate(&self) -> Vector2<f64> {
-        let e_theta = self.theta_error_estimate();
-        let (xt, yt) = self.reference_tangent();
-        let tangent = Vector2::<f64>::new(xt, yt);
-        let rot = Rotation2::new(e_theta);
-        rot * tangent
+
+        // find_theta(
+        //     &self.sensor_distances(),
+        //     MAX_SENSOR_DISTANCE,
+        //     ROBOT_SIDE_LENGTH / 2.0,
+        // )
     }
 
     pub fn get_state(&self) -> Vector<NUM_STATES> {
@@ -160,6 +162,11 @@ impl RobotSimulation {
 
     pub fn reference_tangent(&self) -> (f64, f64) {
         self.path.tangent_at(self.speed * self.get_time())
+    }
+
+    pub fn robot_projection_tangent(&self) -> Vector2<f64> {
+        let (x, y) = self.path.point_projection_tangent(self.state[0], self.state[1]);
+        Vector2::<f64>::new(x, y)
     }
 
     fn robot_dynamics(
@@ -216,6 +223,19 @@ impl RobotSimulation {
             }
         }
         sensor_distances
+    }
+
+    fn sensor_signals(&self) -> [f64; 5] {
+        let sensor_distances = self.sensor_distances();
+        let mut sensor_signals = [0.0f64; 5];
+        for i in 0..5 {
+            if sensor_distances[i] < TRACK_WIDTH/2.0 {
+                sensor_signals[i] = 0.0;
+            } else {
+                sensor_signals[i] = 1.0;
+            }
+        }
+        sensor_signals
     }
 
     pub fn step(&mut self, dt: f64) {

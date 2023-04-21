@@ -73,6 +73,24 @@ where
         }
     }
 
+    fn point_projection_dist(&self, x: F, y: F) -> F {
+        // returns the distance of the point (x, y) on the arc path
+        // assumes that (x, y) is on the arc path
+        let theta = (y - self.y_0).atan2(x - self.x_0);
+        let delta_theta = match self.direction {
+            Direction::Convex => theta - self.theta_0,
+            Direction::Concave => self.theta_0 - theta,
+        };
+        self.r * delta_theta
+    }
+
+    pub fn point_projection_tangent(&self, x: F, y: F) -> (F, F) {
+        // returns the tangent vector of the point (x, y) on the arc path
+        // assumes that (x, y) is on the arc path
+        let dist = self.point_projection_dist(x, y);
+        self.tangent_at(dist)
+    }
+
     pub fn point_at(&self, d: F) -> (F, F) {
         // returns the point X on the path after traveling a distance d
         // the point X is on the arc path 
@@ -155,6 +173,14 @@ where
         }
     }
 
+    pub fn point_projection_tangent(&self, _x: F, _y: F) -> (F, F) {
+        // returns the tangent vector of the point (x, y) on the arc path
+        // assumes that (x, y) is on the arc path
+        let x = (self.x_1 - self.x_0) / self.length;
+        let y = (self.y_1 - self.y_0) / self.length;
+        (x, y)
+    }
+
     fn within_bounds(&self, x: F, y: F) -> bool {
         let t = dot_product(
             x - self.x_0,
@@ -195,7 +221,15 @@ where
 {
     fn sdf(&self, x: F, y: F) -> Option<F> {
         if !self.within_bounds(x, y) {
-            return None;
+            let d0 = distance(x, y, self.x_0, self.y_0);
+            let d1 = distance(x, y, self.x_1, self.y_1);
+            let sign = cross_product(
+                x - self.x_0,
+                y - self.y_0,
+                self.x_1 - self.x_0,
+                self.y_1 - self.y_0,
+            ).signum();
+            return Some(sign * d0.min(d1));
         }
         // divide the entire plane into two regions: the left and the right of the line path (which goes from (x_0, y_0) to (x_1, y_1))
         // as a diagram:
@@ -273,6 +307,43 @@ where
         match subpath_index.subpath_type {
             SubpathType::ArcPath => self.circle_subpaths[subpath_index.index].tangent_at(d),
             SubpathType::LinePath => self.line_subpaths[subpath_index.index].tangent_at(d),
+        }
+    }
+
+    pub fn closest_subpath_index(&self, x: F, y: F) -> (usize, SubpathType) {
+        // returns the index of the subpath that is closest to the point (x, y)
+        let mut min_dist = F::infinity();
+        let mut min_index = 0;
+        let mut min_subpath_type = SubpathType::ArcPath;
+        for (i, subpath) in self.circle_subpaths.iter().enumerate() {
+            if let Some(dist) = subpath.sdf(x, y) {
+                let dist = dist.abs();
+                if dist < min_dist {
+                    min_dist = dist;
+                    min_index = i;
+                }
+            }
+        }
+        for (i, subpath) in self.line_subpaths.iter().enumerate() {
+            if let Some(dist) = subpath.sdf(x, y) {
+                let dist = dist.abs();
+                if dist < min_dist {
+                    min_dist = dist;
+                    min_index = i;
+                    min_subpath_type = SubpathType::LinePath;
+                }
+            }
+        }
+        (min_index, min_subpath_type)
+    }
+
+    pub fn point_projection_tangent(&self, x: F, y: F) -> (F, F) {
+        // returns the tangent vector of the point (x, y) outside the arc path
+        // assumes that (x, y) is on the arc path
+        let (i, subpath_type) = self.closest_subpath_index(x, y);
+        match subpath_type {
+            SubpathType::ArcPath => self.circle_subpaths[i].point_projection_tangent(x, y),
+            SubpathType::LinePath => self.line_subpaths[i].point_projection_tangent(x, y),
         }
     }
 
