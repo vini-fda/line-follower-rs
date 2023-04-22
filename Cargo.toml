@@ -22,6 +22,7 @@ itertools = "0.10.5"
 nalgebra = "0.32.2"
 cmaes = "0.2.1"
 chrono = "0.4.24"
+ico = "0.3.0"
 
 [profile.release]
 opt-level = 2

@@ -63,3 +63,8 @@ pub fn cross_product<F: Float>(x_0: F, y_0: F, x_1: F, y_1: F) -> F {
     // this is equivalent to the determinant of the matrix [[x_0, y_0], [x_1, y_1]]
     x_0 * y_1 - x_1 * y_0
 }
+
+#[inline(always)]
+pub fn sigmoid<F: Float>(x: F) -> F {
+    F::one() / (F::one() + (-x).exp())
+}

@@ -1,25 +1,20 @@
-use egui::plot::{Legend, Line, PlotPoint, PlotPoints, Points};
-use egui::{Color32, RichText, TextStyle};
+use egui::plot::{Legend, Line, PlotPoints, Points};
+use egui::{RichText, TextStyle};
 use itertools::Itertools;
 use line_follower_rs::geometry::interpolated_paths::{predefined_closed_path, Path};
 use line_follower_rs::geometry::sdf_paths::predefined_closed_path_sdf;
-use line_follower_rs::math_utils::lattice_points;
+use line_follower_rs::math_utils::{lattice_points, sigmoid};
 use line_follower_rs::ode_solver::ode_system::Vector;
 use line_follower_rs::simulation::robot::RobotSimulation;
+use macroquad::miniquad::conf::Icon;
 use macroquad::prelude::*;
 use std::f32::consts::PI;
 use std::sync::Arc;
 
 const ROBOT_SIDE_LENGTH: f32 = 0.1;
 const SENSOR_ARRAY_LENGTH: f32 = ROBOT_SIDE_LENGTH * 1.1;
-
-fn window_conf() -> Conf {
-    Conf {
-        window_title: "Line Follower Simulation".to_owned(),
-        high_dpi: true,
-        ..Default::default()
-    }
-}
+const MAX_ZOOM: f32 = 15.0;
+const MIN_ZOOM: f32 = 0.01;
 
 fn draw_vector(x: f32, y: f32, dx: f32, dy: f32, color: Color) {
     draw_line(x, y, x + dx, y + dy, 0.01, color);
@@ -141,6 +136,29 @@ impl ColorScheme {
     }
 }
 
+fn window_conf() -> Conf {
+    let file_bytes = include_bytes!("../../assets/logo.ico");
+    let icon_dir = ico::IconDir::read( std::io::Cursor::new(file_bytes.as_slice())).unwrap();
+    const EXPECTED_NUM_ICONS: usize = 3;
+    assert_eq!(EXPECTED_NUM_ICONS, icon_dir.entries().len());
+    // Print the size of each image in the ICO file:
+    let entries = icon_dir.entries();
+    let small = entries[0].decode().unwrap().rgba_data().try_into().expect("slice with incorrect length");
+    let medium = entries[1].decode().unwrap().rgba_data().try_into().expect("slice with incorrect length");
+    let big = entries[2].decode().unwrap().rgba_data().try_into().expect("slice with incorrect length");
+
+    Conf {
+        window_title: "Line Follower Simulation".to_owned(),
+        high_dpi: true,
+        icon: Some(Icon {
+            small,
+            medium,
+            big,
+        }),
+        ..Default::default()
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut should_draw_grid = false;
@@ -235,8 +253,16 @@ async fn main() {
             robot_sdf_history[i] = robot_sim.robot_sdf_to_path() as f32;
             i = (i + 1) % robot_sdf_history.len();
         }
-        // draw egui
-        zoom *= (mouse_wheel().1 * 0.1).exp();
+        // calculate zoom from mouse scroll
+        let mw = sigmoid(mouse_wheel().1) - 0.5;
+        let new_zoom = zoom * (mw * 0.1).exp();
+        if new_zoom <= MIN_ZOOM {
+            zoom = MIN_ZOOM;
+        } else if new_zoom >= MAX_ZOOM {
+            zoom = MAX_ZOOM;
+        } else {
+            zoom = new_zoom;
+        }
 
         egui_macroquad::ui(|egui_ctx| {
             if pixels_per_point.is_none() {
