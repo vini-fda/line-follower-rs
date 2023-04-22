@@ -1,5 +1,5 @@
-use egui::{RichText, TextStyle, Color32};
-use egui::plot::{Line, PlotPoints, Legend, PlotPoint, Points};
+use egui::plot::{Legend, Line, PlotPoint, PlotPoints, Points};
+use egui::{Color32, RichText, TextStyle};
 use itertools::Itertools;
 use line_follower_rs::geometry::interpolated_paths::{predefined_closed_path, Path};
 use line_follower_rs::geometry::sdf_paths::predefined_closed_path_sdf;
@@ -9,6 +9,9 @@ use line_follower_rs::simulation::robot::RobotSimulation;
 use macroquad::prelude::*;
 use std::f32::consts::PI;
 use std::sync::Arc;
+
+const ROBOT_SIDE_LENGTH: f32 = 0.1;
+const SENSOR_ARRAY_LENGTH: f32 = ROBOT_SIDE_LENGTH * 1.1;
 
 fn window_conf() -> Conf {
     Conf {
@@ -24,11 +27,11 @@ fn draw_vector(x: f32, y: f32, dx: f32, dy: f32, color: Color) {
 
 fn draw_robot(x: f32, y: f32, angle: f32, color: Color) {
     let angle = angle - 90.0;
-    let w = 0.1;
+    let w = ROBOT_SIDE_LENGTH;
     let r = w / 2f32.sqrt();
 
     let (cos_t, sin_t) = ((angle * PI / 180.0).cos(), (angle * PI / 180.0).sin());
-    let l = 1.1 * w;
+    let l = SENSOR_ARRAY_LENGTH;
     draw_line(
         x + l * 0.5 * (cos_t - sin_t),
         y + l * 0.5 * (cos_t + sin_t),
@@ -105,12 +108,12 @@ fn draw_path(path: &Path<f32>, color: Color) {
 }
 
 // PID Constants
-const KP: f64 = 2.565933287511912;//3.49;
-const KI: f64 = 52.33814267275805;//37.46;
-const KD: f64 = 10.549477731373042;//13.79;
-const SPEED: f64 = 1.4602563968294984;//1.04;
+const KP: f64 = 2.565933287511912; //3.49;
+const KI: f64 = 52.33814267275805; //37.46;
+const KD: f64 = 10.549477731373042; //13.79;
+const SPEED: f64 = 1.4602563968294984; //1.04;
 
-// Kp: , Ki: , Kd: 
+// Kp: , Ki: , Kd:
 
 struct ColorScheme {
     pub darkmode: bool,
@@ -125,7 +128,7 @@ impl ColorScheme {
         if self.darkmode {
             Color::new(0.1, 0.1, 0.1, 1.0)
         } else {
-            Color::new(0.9, 0.9, 0.9, 1.0)
+            Color::new(1.0, 1.0, 1.0, 1.0)
         }
     }
 
@@ -151,19 +154,23 @@ async fn main() {
     let mut show_omega_plot = false;
     let mut show_robot_distance_plot = false;
 
+    // pause simulation
+    let mut paused = false;
+
     // sample once per frame
-    let mut robot_sdf_history = [0.0f32; 400];
+    let mut robot_sdf_history = [0.0f32; 600];
     let mut i = 0;
 
-    let mut wl_history = [0.0f32; 400];
+    let mut wl_history = [0.0f32; 600];
     let mut wl_i = 0;
 
-    let mut wr_history = [0.0f32; 400];
+    let mut wr_history = [0.0f32; 600];
     let mut wr_i = 0;
 
     let initial_condition = Vector::<7>::from_column_slice(&[0.0, -4.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
     let main_path_sdf = Arc::new(predefined_closed_path_sdf());
-    let mut robot_sim = RobotSimulation::new(initial_condition, KP, KI, KD, SPEED, main_path_sdf.clone());
+    let mut robot_sim =
+        RobotSimulation::new(initial_condition, KP, KI, KD, SPEED, main_path_sdf.clone());
 
     let main_path = predefined_closed_path();
 
@@ -173,6 +180,7 @@ async fn main() {
             egui_ctx.set_pixels_per_point(pixels_per_point);
         }
     });
+    egui_macroquad::draw();
 
     loop {
         clear_background(color_scheme.background());
@@ -215,13 +223,18 @@ async fn main() {
 
         set_camera(&camera);
 
-        robot_sim.step(1.0 / 60.0);
+        if !paused {
+            // run one simulation step
+            robot_sim.step(1.0 / 60.0);
+            wl_history[wl_i] = robot_sim.get_state()[3] as f32;
+            wl_i = (wl_i + 1) % wl_history.len();
 
-        wl_history[wl_i] = robot_sim.get_state()[3] as f32;
-        wl_i = (wl_i + 1) % wl_history.len();
+            wr_history[wr_i] = robot_sim.get_state()[5] as f32;
+            wr_i = (wr_i + 1) % wl_history.len();
 
-        wr_history[wr_i] = robot_sim.get_state()[5] as f32;
-        wr_i = (wr_i + 1) % wl_history.len();
+            robot_sdf_history[i] = robot_sim.robot_sdf_to_path() as f32;
+            i = (i + 1) % robot_sdf_history.len();
+        }
         // draw egui
         zoom *= (mouse_wheel().1 * 0.1).exp();
 
@@ -230,93 +243,101 @@ async fn main() {
                 pixels_per_point = Some(egui_ctx.pixels_per_point());
             }
 
-            egui::SidePanel::left("left_panel").resizable(false).show(egui_ctx, |ui| {
-                ui.checkbox(&mut color_scheme.darkmode, "Dark mode");
-                ui.checkbox(&mut should_draw_grid, "Draw grid");
-                ui.checkbox(&mut follow_robot, "Follow robot with camera");
-                // edit egui's pixels per point
-                let ppp_label = ui.label("Pixels per point: ");
-                let response = ui.add(
-                    egui::Slider::new(pixels_per_point.as_mut().unwrap(), 0.75..=3.0)
-                        .logarithmic(true),
-                ).labelled_by(ppp_label.id);
-                // edit zoom
-                let zoom_label = ui.label("Zoom: ");
-                ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0)
-                    .logarithmic(true))
-                    .labelled_by(zoom_label.id);
+            egui::SidePanel::left("left_panel")
+                .resizable(false)
+                .show(egui_ctx, |ui| {
+                    ui.label(RichText::new("⛭ Options").heading());
+                    ui.separator();
+                    ui.checkbox(&mut color_scheme.darkmode, "Dark mode");
+                    ui.checkbox(&mut should_draw_grid, "Draw grid");
+                    ui.checkbox(&mut follow_robot, "Follow robot with camera");
+                    ui.checkbox(&mut paused, "Pause simulation");
+                    // edit egui's pixels per point
+                    let ppp_label = ui.label("Pixels per point: ");
+                    let response = ui
+                        .add(
+                            egui::Slider::new(pixels_per_point.as_mut().unwrap(), 0.75..=3.0)
+                                .logarithmic(true),
+                        )
+                        .labelled_by(ppp_label.id);
+                    // edit zoom
+                    let zoom_label = ui.label("Zoom: ");
+                    ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0).logarithmic(true))
+                        .labelled_by(zoom_label.id);
+                    
+                    ui.label(RichText::new("ℹ Info").heading());
+                    ui.separator();
+                    // show mouse position in world coordinates
+                    let (mouse_x, mouse_y) = (mouse_world_pos.x, mouse_world_pos.y);
+                    ui.label(format!("Mouse position: ({:.3}, {:.3})", mouse_x, mouse_y));
 
-                // show mouse position in world coordinates
-                let (mouse_x, mouse_y) = (mouse_world_pos.x, mouse_world_pos.y);
-                ui.label(format!("Mouse position: ({:.3}, {:.3})", mouse_x, mouse_y));
+                    // show distance to path
+                    ui.label(format!("Distance to path: {:.3}", robot_sdf_history[i]));
 
-                // show distance to path
-                robot_sdf_history[i] = robot_sim.robot_sdf_to_path() as f32;
-                ui.label(format!("Distance to path: {:.3}", robot_sdf_history[i]));
-                i = (i + 1) % robot_sdf_history.len();
-                let (mouse_wheel_x, mouse_wheel_y) = mouse_wheel();
-                ui.label(format!(
-                    "Mouse wheel: ({:.3}, {:.3})",
-                    mouse_wheel_x, mouse_wheel_y
-                ));
+                    let (mouse_wheel_x, mouse_wheel_y) = mouse_wheel();
+                    ui.label(format!(
+                        "Mouse wheel: ({:.3}, {:.3})",
+                        mouse_wheel_x, mouse_wheel_y
+                    ));
 
-                ui.label(format!(
-                    "Total time: {:.3} s",
-                    robot_sim.get_time()
-                ));
-                
+                    ui.label(format!("Total time: {:.3} s", robot_sim.get_time()));
 
-                // Don't change scale while dragging the slider
-                if response.drag_released() {
-                    egui_ctx.set_pixels_per_point(pixels_per_point.unwrap());
-                }
-            });
-
-            
-            egui::SidePanel::right("right_panel").resizable(false).show(egui_ctx, |ui| {
-                ui.label(RichText::new("Plots").heading());
-                if ui.button("Plot omegas (ωl and ωr)").on_hover_text("Plot the left and right wheel angular velocities over time").clicked() {
-                    show_omega_plot = !show_omega_plot;
-                }
-                if ui.button("Plot robot distance").on_hover_text("Plot the distance of the robot to the path over time").clicked() {
-                    show_robot_distance_plot = !show_robot_distance_plot;
-                }
-                ui.horizontal_wrapped(|ui| {
-                    // Trick so we don't have to add spaces in the text below:
-                    let width = ui.fonts(|f|f.glyph_width(&TextStyle::Body.resolve(ui.style()), ' '));
-                    ui.spacing_mut().item_spacing.x = width;
-        
-                    ui.label(RichText::new("Text can have").color(Color32::from_rgb(110, 255, 110)));
-                    ui.colored_label(Color32::from_rgb(128, 140, 255), "color"); // Shortcut version
-                    ui.label("and tooltips.").on_hover_text(
-                        "This is a multiline tooltip that demonstrates that you can easily add tooltips to any element.\nThis is the second line.\nThis is the third.",
-                    );
-        
-                    ui.label("You can mix in other widgets into text, like");
-                    let _ = ui.small_button("this button");
-                    ui.label(".");
-        
-                    ui.label("The default font supports all latin and cyrillic characters (ИÅđ…), common math symbols (∫√∞²⅓…), and many emojis (💓🌟🖩…).")
-                        .on_hover_text("There is currently no support for right-to-left languages.");
-                    ui.label("See the 🔤 Font Book for more!");
-        
-                    ui.monospace("There is also a monospace font.");
+                    // Don't change scale while dragging the slider
+                    if response.drag_released() {
+                        egui_ctx.set_pixels_per_point(pixels_per_point.unwrap());
+                    }
+                    
+                    use egui::special_emojis::GITHUB;
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                        let heart_color = egui::Color32::from_rgb(229, 75, 75);
+                        ui.hyperlink_to(format!("{} GitHub repo", GITHUB), "https://github.com/vini-fda/line-follower-rs");
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 0.0;
+                            ui.label("Made with ");
+                            ui.colored_label(heart_color, "❤");
+                            ui.label(" by vini-fda");
+                        });
+                    });
                 });
-             });
+
+            egui::SidePanel::right("right_panel")
+                .resizable(false)
+                .show(egui_ctx, |ui| {
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new("🗠 Plots").heading());
+                        ui.separator();
+                        ui.toggle_value(&mut show_omega_plot, "Plot omegas (ωl and ωr)")
+                        .on_hover_text(
+                            "Plot the left and right wheel angular velocities over time",
+                        );
+                        ui.toggle_value(&mut show_robot_distance_plot, "Plot robot distance")
+                            .on_hover_text("Plot the distance of the robot to the path over time");
+
+                        ui.label(RichText::new("🔧 Parameters").heading());
+                        ui.separator();
+                        ui.label(format!("Robot side length: {:.3}", ROBOT_SIDE_LENGTH));
+                        ui.label(format!("Sensor array length: {:.3}", SENSOR_ARRAY_LENGTH));
+                        // KP, KI, KD
+                        ui.label(format!("KP = {:.3}", KP));
+                        ui.label(format!("KI = {:.3}", KI));
+                        ui.label(format!("KD = {:.3}", KD));
+                    });
+                });
 
             if show_omega_plot {
-                egui::Window::new("Omega plot").show(egui_ctx, |ui| {
+                egui::Window::new("Angular velocities").show(egui_ctx, |ui| {
                     let wl_color = egui::Color32::from_rgb(20, 200, 255);
                     let wr_color = egui::Color32::from_rgb(200, 20, 255);
-                    
+
                     ui.horizontal_wrapped(|ui| {
                         // Trick so we don't have to add spaces in the text below:
-                        let width = ui.fonts(|f|f.glyph_width(&TextStyle::Body.resolve(ui.style()), ' '));
+                        let width =
+                            ui.fonts(|f| f.glyph_width(&TextStyle::Body.resolve(ui.style()), ' '));
                         ui.spacing_mut().item_spacing.x = width;
                         ui.label("This plot shows the angular velocities of the ");
-                        ui.colored_label(wl_color, "left");
+                        ui.colored_label(wl_color, "left (ωl)");
                         ui.label(" and ");
-                        ui.colored_label(wr_color, "right");
+                        ui.colored_label(wr_color, "right (ωr)");
                         ui.label(" wheels over time, in rad/s.");
                     });
                     let plot = egui::plot::Plot::new("debug_view_omegas")
@@ -333,8 +354,7 @@ async fn main() {
                         .allow_scroll(false)
                         .legend(Legend::default())
                         .show_background(false);
-                    // .include_y(10.0)
-                    // .include_y(-10.0);
+
                     plot.show(ui, |plot_ui| {
                         plot_ui.line(
                             Line::new(PlotPoints::from_ys_f32(&wl_history))
@@ -346,16 +366,12 @@ async fn main() {
                                 .color(wr_color)
                                 .name("ωr(t)"),
                         );
-                        // plot_ui.line(
-                        //     Line::new(PlotPoints::from_ys_f32(&[0.5; 400]))
-                        //         .color(egui::Color32::from_rgb(255, 255, 0))
-                        //         .name("ref")
-                        // );
                     });
                 });
             }
+
             if show_robot_distance_plot {
-                egui::Window::new("Robot distance to track").show(egui_ctx, |ui| {
+                egui::Window::new("Distance to track").show(egui_ctx, |ui| {
                     let positive_color = egui::Color32::from_rgb(229, 75, 75);
                     let negative_color = egui::Color32::from_rgb(92, 200, 255);
                     ui.horizontal_wrapped(|ui| {
@@ -461,10 +477,8 @@ async fn main() {
             SKYBLUE,
         );
 
-
         egui_macroquad::draw();
 
         next_frame().await
     }
 }
-
