@@ -264,7 +264,7 @@ async fn main() {
                     let zoom_label = ui.label("Zoom: ");
                     ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0).logarithmic(true))
                         .labelled_by(zoom_label.id);
-                    
+
                     ui.label(RichText::new("ℹ Info").heading());
                     ui.separator();
                     // show mouse position in world coordinates
@@ -286,11 +286,14 @@ async fn main() {
                     if response.drag_released() {
                         egui_ctx.set_pixels_per_point(pixels_per_point.unwrap());
                     }
-                    
+
                     use egui::special_emojis::GITHUB;
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                         let heart_color = egui::Color32::from_rgb(229, 75, 75);
-                        ui.hyperlink_to(format!("{} GitHub repo", GITHUB), "https://github.com/vini-fda/line-follower-rs");
+                        ui.hyperlink_to(
+                            format!("{} GitHub repo", GITHUB),
+                            "https://github.com/vini-fda/line-follower-rs",
+                        );
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing.x = 0.0;
                             ui.label("Made with ");
@@ -307,9 +310,9 @@ async fn main() {
                         ui.label(RichText::new("🗠 Plots").heading());
                         ui.separator();
                         ui.toggle_value(&mut show_omega_plot, "Plot omegas (ωl and ωr)")
-                        .on_hover_text(
-                            "Plot the left and right wheel angular velocities over time",
-                        );
+                            .on_hover_text(
+                                "Plot the left and right wheel angular velocities over time",
+                            );
                         ui.toggle_value(&mut show_robot_distance_plot, "Plot robot distance")
                             .on_hover_text("Plot the distance of the robot to the path over time");
 

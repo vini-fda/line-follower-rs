@@ -93,7 +93,7 @@ where
 
     pub fn point_at(&self, d: F) -> (F, F) {
         // returns the point X on the path after traveling a distance d
-        // the point X is on the arc path 
+        // the point X is on the arc path
         // assumes that d is within the bounds of the arc path
         let theta = match self.direction {
             Direction::Convex => d / self.r,
@@ -106,7 +106,7 @@ where
 
     pub fn tangent_at(&self, d: F) -> (F, F) {
         // returns the tangent vector at the point X on the path after traveling a distance d
-        // the point X is on the arc path 
+        // the point X is on the arc path
         // assumes that d is within the bounds of the arc path
         let theta = match self.direction {
             Direction::Convex => d / self.r,
@@ -203,7 +203,7 @@ where
 
     pub fn tangent_at(&self, _d: F) -> (F, F) {
         // returns the tangent vector at the point X on the path after traveling a distance d
-        // the point X is on the arc path 
+        // the point X is on the arc path
         // assumes that d is within the bounds of the arc path
         let x = (self.x_1 - self.x_0) / self.length;
         let y = (self.y_1 - self.y_0) / self.length;
@@ -228,7 +228,8 @@ where
                 y - self.y_0,
                 self.x_1 - self.x_0,
                 self.y_1 - self.y_0,
-            ).signum();
+            )
+            .signum();
             return Some(sign * d0.min(d1));
         }
         // divide the entire plane into two regions: the left and the right of the line path (which goes from (x_0, y_0) to (x_1, y_1))
@@ -271,7 +272,11 @@ impl<F> ClosedPath<F>
 where
     F: Float + std::fmt::Display,
 {
-    fn new(circle_subpaths: Vec<ArcPath<F>>, line_subpaths: Vec<LinePath<F>>, ordering: Vec<SubpathIndex<F>>) -> Self {
+    fn new(
+        circle_subpaths: Vec<ArcPath<F>>,
+        line_subpaths: Vec<LinePath<F>>,
+        ordering: Vec<SubpathIndex<F>>,
+    ) -> Self {
         Self {
             circle_subpaths,
             line_subpaths,
@@ -497,8 +502,8 @@ pub fn predefined_closed_path_sdf() -> ClosedPath<f64> {
                 index: 4,
                 start_d: 38.0 + 3.5 * PI,
                 subpath_type: SubpathType::ArcPath,
-            }
-        ]
+            },
+        ],
     )
 }
 

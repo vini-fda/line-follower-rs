@@ -54,7 +54,14 @@ pub struct RobotSimulation {
 }
 
 impl RobotSimulation {
-    pub fn new(x0: Vector<NUM_STATES>, kp: f64, ki: f64, kd: f64, speed: f64, path: Arc<ClosedPath<f64>>) -> Self {
+    pub fn new(
+        x0: Vector<NUM_STATES>,
+        kp: f64,
+        ki: f64,
+        kd: f64,
+        speed: f64,
+        path: Arc<ClosedPath<f64>>,
+    ) -> Self {
         let x = x0;
         let u = Vector::<NUM_CONTROLS>::zeros();
         let integrator = Rk4::new(
@@ -94,7 +101,8 @@ impl RobotSimulation {
         // const KI: f64 = 0.0006;
         // const KD: f64 = 0.009;
         // u(t) = Kp * e(t) + Ki * \int e(t) dt + Kd * \frac{de(t)}{dt}
-        let desired_dtheta = self.kp * error_estimate + self.ki * self.int_error + self.kd * deriv_error;
+        let desired_dtheta =
+            self.kp * error_estimate + self.ki * self.int_error + self.kd * deriv_error;
         let k = ROBOT_SIDE_LENGTH * C2 / ROBOT_WHEEL_RADIUS;
 
         let v = k * desired_dtheta;
@@ -112,7 +120,6 @@ impl RobotSimulation {
         // let path_angle = yt.atan2(xt);
         // path_angle - self.state[2]
         self.robot_sdf_to_path()
-
 
         // find_theta(
         //     &self.sensor_distances(),
@@ -167,7 +174,9 @@ impl RobotSimulation {
     }
 
     pub fn robot_projection_tangent(&self) -> Vector2<f64> {
-        let (x, y) = self.path.point_projection_tangent(self.state[0], self.state[1]);
+        let (x, y) = self
+            .path
+            .point_projection_tangent(self.state[0], self.state[1]);
         Vector2::<f64>::new(x, y)
     }
 
@@ -231,7 +240,7 @@ impl RobotSimulation {
         let sensor_distances = self.sensor_distances();
         let mut sensor_signals = [0.0f64; 5];
         for i in 0..5 {
-            if sensor_distances[i] < TRACK_WIDTH/2.0 {
+            if sensor_distances[i] < TRACK_WIDTH / 2.0 {
                 sensor_signals[i] = 0.0;
             } else {
                 sensor_signals[i] = 1.0;

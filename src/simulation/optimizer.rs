@@ -1,21 +1,21 @@
-use std::sync::Arc;
-use crate::{ode_solver::ode_system::Vector, geometry::sdf_paths::ClosedPath};
 use super::robot::RobotSimulation;
-use cmaes::{ObjectiveFunction, CMAESOptions, ParallelObjectiveFunction, PlotOptions, restart::{RestartOptions, BIPOP, IPOP}, objective_function::Scale};
+use crate::{geometry::sdf_paths::ClosedPath, ode_solver::ode_system::Vector};
+use cmaes::{
+    objective_function::Scale,
+    restart::{RestartOptions, BIPOP, IPOP},
+    CMAESOptions, ObjectiveFunction, ParallelObjectiveFunction, PlotOptions,
+};
+use std::sync::Arc;
 
 pub struct RobotOptimizer {
     max_iter: usize,
     path: Arc<ClosedPath<f64>>,
-    dt: f64
+    dt: f64,
 }
 
 impl RobotOptimizer {
     pub fn new(max_iter: usize, dt: f64, path: Arc<ClosedPath<f64>>) -> Self {
-        Self {
-            max_iter,
-            path,
-            dt
-        }
+        Self { max_iter, path, dt }
     }
 
     fn evaluate_fitness(&self, kp: f64, ki: f64, kd: f64, speed: f64) -> f64 {
@@ -38,18 +38,22 @@ impl RobotOptimizer {
     pub fn find_optimal_multithreaded(&self) -> cmaes::DVector<f64> {
         let x0 = vec![12.0, 1.5, 4.0, 1.5];
         let mut cmaes_state = CMAESOptions::new(x0, 0.1)
-                                .mode(cmaes::Mode::Maximize)
-                                .population_size(300)
-                                .weights(cmaes::Weights::Negative)
-                                .enable_plot(PlotOptions::new(0, false))
-                                .build(self)
-                                .unwrap();
+            .mode(cmaes::Mode::Maximize)
+            .population_size(300)
+            .weights(cmaes::Weights::Negative)
+            .enable_plot(PlotOptions::new(0, false))
+            .build(self)
+            .unwrap();
         let soln = cmaes_state.run_parallel();
         // get date and time to put in filename
         let now = chrono::Local::now();
         let filename = format!("plot_{}.png", now.format("%Y-%m-%d_%H-%M-%S"));
         soln.reasons.iter().for_each(|r| println!("{:?}", r));
-        cmaes_state.get_plot().unwrap().save_to_file(filename, true).unwrap();
+        cmaes_state
+            .get_plot()
+            .unwrap()
+            .save_to_file(filename, true)
+            .unwrap();
         soln.overall_best.unwrap().point
 
         // let restarter = RestartOptions::new(4, 0.0..=1.0, cmaes::restart::RestartStrategy::BIPOP(BIPOP::default()))
