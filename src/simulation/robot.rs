@@ -137,7 +137,7 @@ impl RobotSimulation {
         }
     }
 
-    /// Error relative to the trajectory defined by the vertex path
+    /// Error relative to the trajectory defined by the reference position
     pub fn robot_error(&self) -> f64 {
         let (x, y) = self.reference_point();
         let (xp, yp) = (self.state[0], self.state[1]);
@@ -145,14 +145,16 @@ impl RobotSimulation {
         dx * dx + dy * dy
     }
 
-    /// Dot product of the robot's velocity with the tangent of the path
+    /// Dot product of the robot's velocity with the tangent of reference position
     pub fn robot_velocity_reward(&self) -> f64 {
         let (wl, wr) = (self.state[3], self.state[5]);
         let theta = self.state[2];
         let speed = ROBOT_WHEEL_RADIUS * (wl + wr) / 2.0;
         let vx = speed * theta.cos();
         let vy = speed * theta.sin();
-        let (tx, ty) = self.reference_tangent();
+        // let (tx, ty) = self.reference_tangent();
+        let vt = self.robot_projection_tangent();
+        let (tx, ty) = (vt[0], vt[1]);
         vx * tx + vy * ty
     }
 

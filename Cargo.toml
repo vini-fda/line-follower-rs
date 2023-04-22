@@ -3,7 +3,13 @@ name = "line_follower_rs"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "line_follower_gui"
+path = "src/app/main.rs"
+
+[[bin]]
+name = "line_follower_cli"
+path = "src/cli/main.rs"
 
 [dependencies]
 egui = "0.21.0"

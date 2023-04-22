@@ -4,7 +4,6 @@ use line_follower_rs::geometry::interpolated_paths::{predefined_closed_path, Pat
 use line_follower_rs::geometry::sdf_paths::predefined_closed_path_sdf;
 use line_follower_rs::math_utils::lattice_points;
 use line_follower_rs::ode_solver::ode_system::Vector;
-use line_follower_rs::simulation::optimizer::RobotOptimizer;
 use line_follower_rs::simulation::robot::RobotSimulation;
 use macroquad::prelude::*;
 use std::f32::consts::PI;
@@ -105,27 +104,19 @@ fn draw_path(path: &Path<f32>, color: Color) {
 }
 
 // PID Constants
-const KP: f64 = 12.0;
-const KI: f64 = 1.5;
-const KD: f64 = 4.0;
-const SPEED: f64 = 1.5;
+const KP: f64 = 2.565933287511912;//3.49;
+const KI: f64 = 52.33814267275805;//37.46;
+const KD: f64 = 10.549477731373042;//13.79;
+const SPEED: f64 = 1.4602563968294984;//1.04;
 
 // Kp: , Ki: , Kd: 
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut show_egui_demo_windows = false;
-    let mut egui_demo_windows = egui_demo_lib::DemoWindows::default();
-    let mut draw_primitives_after_egui = false;
-
     let mut should_draw_grid = true;
-
     let mut pixels_per_point: Option<f32> = None;
-
     let mut zoom: f32 = 1.0;
-
     const CAMERA_SPEED: f32 = 3.0e-2;
-
     let mut camera_center: Vec2 = [0.0, -4.0].into();
 
     // sample once per frame
@@ -194,24 +185,12 @@ async fn main() {
                 pixels_per_point = Some(egui_ctx.pixels_per_point());
             }
 
-            if show_egui_demo_windows {
-                egui_demo_windows.ui(egui_ctx);
-            }
-
             egui::Window::new("Options").show(egui_ctx, |ui| {
-                ui.checkbox(&mut show_egui_demo_windows, "Show egui demo windows");
-                ui.checkbox(
-                    &mut draw_primitives_after_egui,
-                    "Draw macroquad primitives after egui",
-                );
-
                 ui.checkbox(&mut should_draw_grid, "Draw grid");
-
                 let response = ui.add(
                     egui::Slider::new(pixels_per_point.as_mut().unwrap(), 0.75..=3.0)
                         .logarithmic(true),
                 );
-
                 ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0).logarithmic(true));
 
                 // show mouse position in world coordinates
@@ -227,6 +206,12 @@ async fn main() {
                     "Mouse wheel: ({:.3}, {:.3})",
                     mouse_wheel_x, mouse_wheel_y
                 ));
+
+                ui.label(format!(
+                    "Total time: {:.3} s",
+                    robot_sim.get_time()
+                ));
+                
 
                 // Don't change scale while dragging the slider
                 if response.drag_released() {
@@ -253,7 +238,7 @@ async fn main() {
                 });
             });
 
-            egui::Window::new("Omega_l plot").show(egui_ctx, |ui| {
+            egui::Window::new("Omega plot").show(egui_ctx, |ui| {
                 let plot = egui::plot::Plot::new("debug_view_omegas")
                     .view_aspect(1.0)
                     .allow_zoom(false)
@@ -319,9 +304,3 @@ async fn main() {
     }
 }
 
-// fn main() {
-//     let main_path_sdf = Arc::new(predefined_closed_path_sdf());
-
-//     let best_ks = RobotOptimizer::new(5_000, 1.0e-2, main_path_sdf).find_optimal_multithreaded();
-//     println!("best Kp: {}, Ki: {}, Kd: {}, speed: {}", best_ks[0], best_ks[1], best_ks[2], best_ks[3]);
-// }
