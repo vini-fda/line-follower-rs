@@ -17,8 +17,8 @@ fn window_conf() -> Conf {
     }
 }
 
-fn draw_vector(x: f32, y: f32, dx: f32, dy: f32) {
-    draw_line(x, y, x + dx, y + dy, 0.01, GREEN);
+fn draw_vector(x: f32, y: f32, dx: f32, dy: f32, color: Color) {
+    draw_line(x, y, x + dx, y + dy, 0.01, color);
 }
 
 fn draw_robot(x: f32, y: f32, angle: f32, color: Color) {
@@ -111,13 +111,41 @@ const SPEED: f64 = 1.4602563968294984;//1.04;
 
 // Kp: , Ki: , Kd: 
 
+struct ColorScheme {
+    pub darkmode: bool,
+}
+
+impl ColorScheme {
+    fn new(darkmode: bool) -> Self {
+        Self { darkmode }
+    }
+
+    fn background(&self) -> Color {
+        if self.darkmode {
+            Color::new(0.1, 0.1, 0.1, 1.0)
+        } else {
+            Color::new(0.9, 0.9, 0.9, 1.0)
+        }
+    }
+
+    fn path(&self) -> Color {
+        if self.darkmode {
+            Color::new(1.0, 1.0, 1.0, 1.0)
+        } else {
+            Color::new(0.1, 0.1, 0.1, 1.0)
+        }
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut should_draw_grid = true;
+    let mut should_draw_grid = false;
     let mut pixels_per_point: Option<f32> = None;
-    let mut zoom: f32 = 1.0;
+    let mut zoom: f32 = 0.1;
     const CAMERA_SPEED: f32 = 3.0e-2;
     let mut camera_center: Vec2 = [0.0, -4.0].into();
+    let mut follow_robot = false;
+    let mut color_scheme = ColorScheme::new(true);
 
     // sample once per frame
     let mut robot_sdf_history = [0.0f32; 400];
@@ -136,7 +164,7 @@ async fn main() {
     let main_path = predefined_closed_path();
 
     loop {
-        clear_background(WHITE);
+        clear_background(color_scheme.background());
 
         // WASD camera movement
         let mut camera_velocity: Vec2 = Vec2::ZERO;
@@ -158,7 +186,13 @@ async fn main() {
             camera_velocity = camera_velocity.normalize() * CAMERA_SPEED / zoom;
         }
 
-        camera_center += camera_velocity;
+        if follow_robot {
+            let robot_state = robot_sim.get_state();
+            let robot_pos = vec2(robot_state[0] as f32, robot_state[1] as f32);
+            camera_center = robot_pos;
+        } else {
+            camera_center += camera_velocity;
+        }
 
         let camera = Camera2D {
             zoom: vec2(zoom, zoom * screen_width() / screen_height()),
@@ -186,12 +220,20 @@ async fn main() {
             }
 
             egui::Window::new("Options").show(egui_ctx, |ui| {
+                ui.checkbox(&mut color_scheme.darkmode, "Dark mode");
                 ui.checkbox(&mut should_draw_grid, "Draw grid");
+                ui.checkbox(&mut follow_robot, "Follow robot with camera");
+                // edit egui's pixels per point
+                let ppp_label = ui.label("Pixels per point: ");
                 let response = ui.add(
                     egui::Slider::new(pixels_per_point.as_mut().unwrap(), 0.75..=3.0)
                         .logarithmic(true),
-                );
-                ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0).logarithmic(true));
+                ).labelled_by(ppp_label.id);
+                // edit zoom
+                let zoom_label = ui.label("Zoom: ");
+                ui.add(egui::Slider::new(&mut zoom, 0.1..=10.0)
+                    .logarithmic(true))
+                    .labelled_by(zoom_label.id);
 
                 // show mouse position in world coordinates
                 let (mouse_x, mouse_y) = (mouse_world_pos.x, mouse_world_pos.y);
@@ -271,7 +313,7 @@ async fn main() {
             draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
         }
 
-        draw_path(&main_path, BLACK);
+        draw_path(&main_path, color_scheme.path());
 
         draw_robot(
             robot_sim.get_state()[0] as f32,
@@ -280,7 +322,7 @@ async fn main() {
             RED,
         );
         let (xr, yr) = robot_sim.reference_point();
-        draw_circle(xr as f32, yr as f32, 0.05, RED);
+        draw_circle(xr as f32, yr as f32, 0.05, PURPLE);
         let (xt, yt) = robot_sim.reference_tangent();
         // draw tangent vector to reference point
         draw_vector(
@@ -288,15 +330,28 @@ async fn main() {
             yr as f32,
             xt as f32 * 0.1,
             yt as f32 * 0.1,
+            YELLOW,
         );
-        // draw robot direction estimate vector
-        let direction = robot_sim.robot_projection_tangent();
+        // draw robot projection tangent vector
+        let projection_tangent = robot_sim.robot_projection_tangent();
         draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
-            direction[0] as f32 * 0.1,
-            direction[1] as f32 * 0.1,
+            projection_tangent[0] as f32 * 0.1,
+            projection_tangent[1] as f32 * 0.1,
+            GREEN,
         );
+
+        // draw robot direction vector
+        let theta = robot_sim.get_state()[2] as f32;
+        draw_vector(
+            robot_sim.get_state()[0] as f32,
+            robot_sim.get_state()[1] as f32,
+            theta.cos() * 0.1,
+            theta.sin() * 0.1,
+            SKYBLUE,
+        );
+
 
         egui_macroquad::draw();
 
