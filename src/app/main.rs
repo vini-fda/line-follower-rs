@@ -1,4 +1,5 @@
-use egui::plot::{Line, PlotPoints};
+use egui::{RichText, TextStyle, Color32};
+use egui::plot::{Line, PlotPoints, Legend, PlotPoint, Points};
 use itertools::Itertools;
 use line_follower_rs::geometry::interpolated_paths::{predefined_closed_path, Path};
 use line_follower_rs::geometry::sdf_paths::predefined_closed_path_sdf;
@@ -140,12 +141,15 @@ impl ColorScheme {
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut should_draw_grid = false;
-    let mut pixels_per_point: Option<f32> = None;
-    let mut zoom: f32 = 0.1;
+    let mut pixels_per_point: Option<f32> = Some(1.5);
+    let mut zoom: f32 = 0.3;
     const CAMERA_SPEED: f32 = 3.0e-2;
     let mut camera_center: Vec2 = [0.0, -4.0].into();
-    let mut follow_robot = false;
+    let mut follow_robot = true;
     let mut color_scheme = ColorScheme::new(true);
+
+    let mut show_omega_plot = false;
+    let mut show_robot_distance_plot = false;
 
     // sample once per frame
     let mut robot_sdf_history = [0.0f32; 400];
@@ -162,6 +166,13 @@ async fn main() {
     let mut robot_sim = RobotSimulation::new(initial_condition, KP, KI, KD, SPEED, main_path_sdf.clone());
 
     let main_path = predefined_closed_path();
+
+    // initial config of egui context
+    egui_macroquad::ui(|egui_ctx| {
+        if let Some(pixels_per_point) = pixels_per_point {
+            egui_ctx.set_pixels_per_point(pixels_per_point);
+        }
+    });
 
     loop {
         clear_background(color_scheme.background());
@@ -219,7 +230,7 @@ async fn main() {
                 pixels_per_point = Some(egui_ctx.pixels_per_point());
             }
 
-            egui::Window::new("Options").show(egui_ctx, |ui| {
+            egui::SidePanel::left("left_panel").resizable(false).show(egui_ctx, |ui| {
                 ui.checkbox(&mut color_scheme.darkmode, "Dark mode");
                 ui.checkbox(&mut should_draw_grid, "Draw grid");
                 ui.checkbox(&mut follow_robot, "Follow robot with camera");
@@ -261,52 +272,150 @@ async fn main() {
                 }
             });
 
-            egui::Window::new("Robot distance to track").show(egui_ctx, |ui| {
-                let plot = egui::plot::Plot::new("debug_view_robot_distance")
-                    .view_aspect(1.0)
-                    .allow_zoom(false)
-                    .allow_drag(false)
-                    .allow_scroll(false)
-                    .show_background(false)
-                    .include_y(0.0);
-                // .include_y(1.0)
-                // .include_y(-1.0);
-                plot.show(ui, |plot_ui| {
-                    plot_ui.line(
-                        Line::new(PlotPoints::from_ys_f32(&robot_sdf_history))
-                            .color(egui::Color32::from_rgb(0, 0, 255))
-                            .name("Distance to path"),
-                    )
+            
+            egui::SidePanel::right("right_panel").resizable(false).show(egui_ctx, |ui| {
+                ui.label(RichText::new("Plots").heading());
+                if ui.button("Plot omegas (ωl and ωr)").on_hover_text("Plot the left and right wheel angular velocities over time").clicked() {
+                    show_omega_plot = !show_omega_plot;
+                }
+                if ui.button("Plot robot distance").on_hover_text("Plot the distance of the robot to the path over time").clicked() {
+                    show_robot_distance_plot = !show_robot_distance_plot;
+                }
+                ui.horizontal_wrapped(|ui| {
+                    // Trick so we don't have to add spaces in the text below:
+                    let width = ui.fonts(|f|f.glyph_width(&TextStyle::Body.resolve(ui.style()), ' '));
+                    ui.spacing_mut().item_spacing.x = width;
+        
+                    ui.label(RichText::new("Text can have").color(Color32::from_rgb(110, 255, 110)));
+                    ui.colored_label(Color32::from_rgb(128, 140, 255), "color"); // Shortcut version
+                    ui.label("and tooltips.").on_hover_text(
+                        "This is a multiline tooltip that demonstrates that you can easily add tooltips to any element.\nThis is the second line.\nThis is the third.",
+                    );
+        
+                    ui.label("You can mix in other widgets into text, like");
+                    let _ = ui.small_button("this button");
+                    ui.label(".");
+        
+                    ui.label("The default font supports all latin and cyrillic characters (ИÅđ…), common math symbols (∫√∞²⅓…), and many emojis (💓🌟🖩…).")
+                        .on_hover_text("There is currently no support for right-to-left languages.");
+                    ui.label("See the 🔤 Font Book for more!");
+        
+                    ui.monospace("There is also a monospace font.");
                 });
-            });
+             });
 
-            egui::Window::new("Omega plot").show(egui_ctx, |ui| {
-                let plot = egui::plot::Plot::new("debug_view_omegas")
-                    .view_aspect(1.0)
-                    .allow_zoom(false)
-                    .allow_drag(false)
-                    .allow_scroll(false)
-                    .show_background(false);
-                // .include_y(10.0)
-                // .include_y(-10.0);
-                plot.show(ui, |plot_ui| {
-                    plot_ui.line(
-                        Line::new(PlotPoints::from_ys_f32(&wl_history))
-                            .color(egui::Color32::from_rgb(20, 200, 255))
-                            .name("wl"),
-                    );
-                    plot_ui.line(
-                        Line::new(PlotPoints::from_ys_f32(&wr_history))
-                            .color(egui::Color32::from_rgb(200, 20, 255))
-                            .name("wr"),
-                    );
-                    // plot_ui.line(
-                    //     Line::new(PlotPoints::from_ys_f32(&[0.5; 400]))
-                    //         .color(egui::Color32::from_rgb(255, 255, 0))
-                    //         .name("ref")
-                    // );
+            if show_omega_plot {
+                egui::Window::new("Omega plot").show(egui_ctx, |ui| {
+                    let wl_color = egui::Color32::from_rgb(20, 200, 255);
+                    let wr_color = egui::Color32::from_rgb(200, 20, 255);
+                    
+                    ui.horizontal_wrapped(|ui| {
+                        // Trick so we don't have to add spaces in the text below:
+                        let width = ui.fonts(|f|f.glyph_width(&TextStyle::Body.resolve(ui.style()), ' '));
+                        ui.spacing_mut().item_spacing.x = width;
+                        ui.label("This plot shows the angular velocities of the ");
+                        ui.colored_label(wl_color, "left");
+                        ui.label(" and ");
+                        ui.colored_label(wr_color, "right");
+                        ui.label(" wheels over time, in rad/s.");
+                    });
+                    let plot = egui::plot::Plot::new("debug_view_omegas")
+                        .label_formatter(|name, value| {
+                            if !name.is_empty() {
+                                format!("{}: {:.*} rad/s", name, 1, value.y)
+                            } else {
+                                "".to_owned()
+                            }
+                        })
+                        .view_aspect(2.0)
+                        .allow_zoom(false)
+                        .allow_drag(false)
+                        .allow_scroll(false)
+                        .legend(Legend::default())
+                        .show_background(false);
+                    // .include_y(10.0)
+                    // .include_y(-10.0);
+                    plot.show(ui, |plot_ui| {
+                        plot_ui.line(
+                            Line::new(PlotPoints::from_ys_f32(&wl_history))
+                                .color(wl_color)
+                                .name("ωl(t)"),
+                        );
+                        plot_ui.line(
+                            Line::new(PlotPoints::from_ys_f32(&wr_history))
+                                .color(wr_color)
+                                .name("ωr(t)"),
+                        );
+                        // plot_ui.line(
+                        //     Line::new(PlotPoints::from_ys_f32(&[0.5; 400]))
+                        //         .color(egui::Color32::from_rgb(255, 255, 0))
+                        //         .name("ref")
+                        // );
+                    });
                 });
-            });
+            }
+            if show_robot_distance_plot {
+                egui::Window::new("Robot distance to track").show(egui_ctx, |ui| {
+                    let positive_color = egui::Color32::from_rgb(229, 75, 75);
+                    let negative_color = egui::Color32::from_rgb(92, 200, 255);
+                    ui.horizontal_wrapped(|ui| {
+                        // Trick so we don't have to add spaces in the text below:
+                        let width = ui.fonts(|f|f.glyph_width(&TextStyle::Body.resolve(ui.style()), ' '));
+                        ui.spacing_mut().item_spacing.x = width;
+                        ui.label("This plot shows the distance of the robot to the path over time, in meters.");
+                        ui.label("The distance can be either ");
+                        ui.colored_label(positive_color, "positive");
+                        ui.label(" which means it is outside the track, or ");
+                        ui.colored_label(negative_color, "negative");
+                        ui.label(" which means it is inside the track.");
+                    });
+                    let plot = egui::plot::Plot::new("debug_view_robot_distance")
+                        .label_formatter(|name, value| {
+                            if !name.is_empty() {
+                                format!("{}: {:.3} m", name, value.y)
+                            } else {
+                                "".to_owned()
+                            }
+                        })
+                        .view_aspect(2.0)
+                        .allow_zoom(false)
+                        .allow_drag(false)
+                        .allow_scroll(false)
+                        .show_background(false)
+                        .include_y(0.0);
+                    // .include_y(1.0)
+                    // .include_y(-1.0);
+                    plot.show(ui, |plot_ui| {
+                        let positive_points = robot_sdf_history
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, &d)| d >= 0.0)
+                        .map(|(i, &d)| [i as f64, d as f64])
+                        .collect::<Vec<_>>();
+
+                        plot_ui.points(
+                            Points::new(PlotPoints::new(positive_points))
+                                .color(positive_color)
+                                .stems(0.0)
+                                .name("d(t)"),
+                        );
+
+                        let negative_points = robot_sdf_history
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, &d)| d < 0.0)
+                        .map(|(i, &d)| [i as f64, d as f64])
+                        .collect::<Vec<_>>();
+
+                        plot_ui.points(
+                            Points::new(PlotPoints::new(negative_points))
+                                .color(negative_color)
+                                .stems(0.0)
+                                .name("d(t)"),
+                        );
+                    });
+                });
+            }
         });
 
         if should_draw_grid {
