@@ -89,6 +89,7 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    const DT: f64 = 1.0 / 60.0;
     let mut should_draw_grid = false;
     let mut pixels_per_point: Option<f32> = Some(1.5);
     let mut zoom: f32 = 0.3;
@@ -175,8 +176,11 @@ async fn main() {
         macroquad::prelude::set_camera(&camera);
 
         if !paused {
-            // run one simulation step
-            robot_sim.step(1.0 / 60.0);
+            const STEPS: usize = 4;
+            const STEP_SIZE: f64 = DT / STEPS as f64;
+            for _ in 0..STEPS {
+                robot_sim.step(STEP_SIZE);
+            }
             wl_history[wl_i] = robot_sim.get_state()[3] as f32;
             wl_i = (wl_i + 1) % wl_history.len();
 
