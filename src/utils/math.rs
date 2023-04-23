@@ -1,4 +1,6 @@
-use num::Float;
+use nalgebra::Vector2;
+
+use crate::utils::traits::Float;
 
 pub struct FloatRange<F: Float> {
     pub start: F,
@@ -31,7 +33,7 @@ where
 {
     type Item = F;
     fn next(&mut self) -> Option<Self::Item> {
-        self.curr = self.curr + self.step;
+        self.curr += self.step;
         if self.curr > self.end {
             None
         } else {
@@ -42,14 +44,14 @@ where
 
 #[inline(always)]
 pub fn lattice_points<F: Float>(x_0: F, x_min: F, x_max: F, dx: F) -> FloatRange<F> {
-    let y_min = x_0 + ((x_min - x_0) / dx).floor() * dx;
-    let y_max = x_0 + ((x_max - x_0) / dx).ceil() * dx;
+    let y_min = x_0 + num::Float::floor((x_min - x_0) / dx) * dx;
+    let y_max = x_0 + num::Float::ceil((x_max - x_0) / dx) * dx;
     FloatRange::new(y_min, y_max, dx)
 }
 
 #[inline(always)]
 pub fn distance<F: Float>(x_0: F, y_0: F, x_1: F, y_1: F) -> F {
-    ((x_0 - x_1).powi(2) + (y_0 - y_1).powi(2)).sqrt()
+    num::Float::sqrt(num::Float::powi(x_0 - x_1, 2) + num::Float::powi(y_0 - y_1, 2))
 }
 
 #[inline(always)]
@@ -66,5 +68,13 @@ pub fn cross_product<F: Float>(x_0: F, y_0: F, x_1: F, y_1: F) -> F {
 
 #[inline(always)]
 pub fn sigmoid<F: Float>(x: F) -> F {
-    F::one() / (F::one() + (-x).exp())
+    F::one() / (F::one() + num::Float::exp(-x))
+}
+
+#[inline(always)]
+pub fn cross<F>(a: &Vector2<F>, b: &Vector2<F>) -> F
+where
+    F: Float,
+{
+    a.x * b.y - a.y * b.x
 }
