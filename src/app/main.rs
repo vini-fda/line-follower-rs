@@ -1,8 +1,9 @@
 use egui::plot::{Legend, Line, PlotPoints, Points};
 use egui::{RichText, TextStyle};
 use itertools::Itertools;
-use line_follower_rs::geometry::interpolated_paths::{predefined_closed_path, Path};
-use line_follower_rs::geometry::sdf_paths::predefined_closed_path_sdf;
+use line_follower_rs::geometry::closed_path::predefined_closed_path;
+use line_follower_rs::geometry::track::sample_points;
+use line_follower_rs::graphics::draw::draw_closed_curve;
 use line_follower_rs::math_utils::{lattice_points, sigmoid};
 use line_follower_rs::ode_solver::ode_system::Vector;
 use line_follower_rs::simulation::robot::RobotSimulation;
@@ -96,12 +97,6 @@ fn draw_grid_from_bounds(origin: Vec2, min_bounds: Vec2, max_bounds: Vec2, dx: f
     );
 }
 
-fn draw_path(path: &Path<f32>, color: Color) {
-    for ((x0, y0), (x1, y1)) in path.points().tuple_windows() {
-        draw_line(x0, y0, x1, y1, 0.04, color)
-    }
-}
-
 // PID Constants
 const KP: f64 = 2.565933287511912; //3.49;
 const KI: f64 = 52.33814267275805; //37.46;
@@ -138,23 +133,34 @@ impl ColorScheme {
 
 fn window_conf() -> Conf {
     let file_bytes = include_bytes!("../../assets/logo.ico");
-    let icon_dir = ico::IconDir::read( std::io::Cursor::new(file_bytes.as_slice())).unwrap();
+    let icon_dir = ico::IconDir::read(std::io::Cursor::new(file_bytes.as_slice())).unwrap();
     const EXPECTED_NUM_ICONS: usize = 3;
     assert_eq!(EXPECTED_NUM_ICONS, icon_dir.entries().len());
     // Print the size of each image in the ICO file:
     let entries = icon_dir.entries();
-    let small = entries[0].decode().unwrap().rgba_data().try_into().expect("slice with incorrect length");
-    let medium = entries[1].decode().unwrap().rgba_data().try_into().expect("slice with incorrect length");
-    let big = entries[2].decode().unwrap().rgba_data().try_into().expect("slice with incorrect length");
+    let small = entries[0]
+        .decode()
+        .unwrap()
+        .rgba_data()
+        .try_into()
+        .expect("slice with incorrect length");
+    let medium = entries[1]
+        .decode()
+        .unwrap()
+        .rgba_data()
+        .try_into()
+        .expect("slice with incorrect length");
+    let big = entries[2]
+        .decode()
+        .unwrap()
+        .rgba_data()
+        .try_into()
+        .expect("slice with incorrect length");
 
     Conf {
         window_title: "Line Follower Simulation".to_owned(),
         high_dpi: true,
-        icon: Some(Icon {
-            small,
-            medium,
-            big,
-        }),
+        icon: Some(Icon { small, medium, big }),
         ..Default::default()
     }
 }
@@ -184,13 +190,18 @@ async fn main() {
 
     let mut wr_history = [0.0f32; 600];
     let mut wr_i = 0;
+    let main_path = predefined_closed_path();
+    let path_points = sample_points(&main_path, 0.1).collect_vec();
 
     let initial_condition = Vector::<7>::from_column_slice(&[0.0, -4.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
-    let main_path_sdf = Arc::new(predefined_closed_path_sdf());
-    let mut robot_sim =
-        RobotSimulation::new(initial_condition, KP, KI, KD, SPEED, main_path_sdf.clone());
-
-    let main_path = predefined_closed_path();
+    let mut robot_sim = RobotSimulation::new(
+        initial_condition,
+        KP,
+        KI,
+        KD,
+        SPEED,
+        Arc::new(main_path.clone()),
+    );
 
     // initial config of egui context
     egui_macroquad::ui(|egui_ctx| {
@@ -467,7 +478,7 @@ async fn main() {
             draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
         }
 
-        draw_path(&main_path, color_scheme.path());
+        draw_closed_curve(&path_points, color_scheme.path(), 0.03);
 
         draw_robot(
             robot_sim.get_state()[0] as f32,
@@ -475,15 +486,15 @@ async fn main() {
             robot_sim.get_state()[2] as f32 * 180.0 / PI,
             RED,
         );
-        let (xr, yr) = robot_sim.reference_point();
-        draw_circle(xr as f32, yr as f32, 0.05, PURPLE);
-        let (xt, yt) = robot_sim.reference_tangent();
+        let pr = robot_sim.reference_point();
+        draw_circle(pr.x as f32, pr.y as f32, 0.05, PURPLE);
+        let tr = robot_sim.reference_tangent();
         // draw tangent vector to reference point
         draw_vector(
-            xr as f32,
-            yr as f32,
-            xt as f32 * 0.1,
-            yt as f32 * 0.1,
+            pr.x as f32,
+            pr.y as f32,
+            tr.x as f32 * 0.1,
+            tr.y as f32 * 0.1,
             YELLOW,
         );
         // draw robot projection tangent vector

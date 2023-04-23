@@ -1,5 +1,5 @@
 use super::robot::RobotSimulation;
-use crate::{geometry::sdf_paths::ClosedPath, ode_solver::ode_system::Vector};
+use crate::{geometry::closed_path::ClosedPath, ode_solver::ode_system::Vector};
 use cmaes::{
     objective_function::Scale,
     restart::{RestartOptions, BIPOP, IPOP},
@@ -12,7 +12,10 @@ pub struct RobotOptimizer {
     path: Arc<ClosedPath<f64>>,
     dt: f64,
 }
-
+const KP: f64 = 2.565933287511912;
+const KI: f64 = 52.33814267275805;
+const KD: f64 = 10.549477731373042;
+const SPEED: f64 = 1.4602563968294984;
 impl RobotOptimizer {
     pub fn new(max_iter: usize, dt: f64, path: Arc<ClosedPath<f64>>) -> Self {
         Self { max_iter, path, dt }
@@ -36,7 +39,7 @@ impl RobotOptimizer {
     }
 
     pub fn find_optimal_multithreaded(&self) -> cmaes::DVector<f64> {
-        let x0 = vec![12.0, 1.5, 4.0, 1.5];
+        let x0 = vec![KP, KI, KD, SPEED];
         let mut cmaes_state = CMAESOptions::new(x0, 0.1)
             .mode(cmaes::Mode::Maximize)
             .population_size(300)

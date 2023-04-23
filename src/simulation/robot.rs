@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use nalgebra::{Rotation2, Vector2};
+use nalgebra::{distance_squared, Point2, Rotation2, Vector2};
 
-use crate::geometry::sdf_paths::{ClosedPath, SDF};
+use crate::geometry::closed_path::ClosedPath;
+use crate::geometry::track::Track;
 use crate::ode_solver::integrator::Rk4;
 use crate::ode_solver::ode_system::Vector;
 /// The number of state variables
@@ -136,20 +137,17 @@ impl RobotSimulation {
         self.time
     }
 
+    pub fn robot_position(&self) -> Point2<f64> {
+        Point2::<f64>::new(self.state[0], self.state[1])
+    }
+
     pub fn robot_sdf_to_path(&self) -> f64 {
-        if let Some(d) = self.path.sdf(self.state[0], self.state[1]) {
-            d
-        } else {
-            0.0
-        }
+        self.path.sdf(self.robot_position())
     }
 
     /// Error relative to the trajectory defined by the reference position
     pub fn robot_error(&self) -> f64 {
-        let (x, y) = self.reference_point();
-        let (xp, yp) = (self.state[0], self.state[1]);
-        let (dx, dy) = (x - xp, y - yp);
-        dx * dx + dy * dy
+        distance_squared(&self.reference_point(), &self.robot_position())
     }
 
     /// Dot product of the robot's velocity with the tangent of reference position
@@ -165,19 +163,16 @@ impl RobotSimulation {
         vx * tx + vy * ty
     }
 
-    pub fn reference_point(&self) -> (f64, f64) {
+    pub fn reference_point(&self) -> Point2<f64> {
         self.path.point_at(self.speed * self.get_time())
     }
 
-    pub fn reference_tangent(&self) -> (f64, f64) {
+    pub fn reference_tangent(&self) -> Vector2<f64> {
         self.path.tangent_at(self.speed * self.get_time())
     }
 
     pub fn robot_projection_tangent(&self) -> Vector2<f64> {
-        let (x, y) = self
-            .path
-            .point_projection_tangent(self.state[0], self.state[1]);
-        Vector2::<f64>::new(x, y)
+        self.path.point_projection_tangent(self.robot_position())
     }
 
     fn robot_dynamics(
@@ -201,53 +196,53 @@ impl RobotSimulation {
         Vector::<7>::from_column_slice(&[d_x, d_y, d_theta, d_wl, d_dwl, d_wr, d_dwr])
     }
 
-    fn sensor_distances(&self) -> [f64; 5] {
-        // we initially consider the robot pointing rightward, so the sensor array is vertical (x constant)
-        let mut sensor_positions = [
-            Vector2::<f64>::new(
-                SENSOR_DISTANCE_TO_ROBOT_CENTER,
-                2.0 * SENSOR_ARRAY_SEPARATION,
-            ),
-            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, SENSOR_ARRAY_SEPARATION),
-            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, 0.0),
-            Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, -SENSOR_ARRAY_SEPARATION),
-            Vector2::<f64>::new(
-                SENSOR_DISTANCE_TO_ROBOT_CENTER,
-                -2.0 * SENSOR_ARRAY_SEPARATION,
-            ),
-        ];
+    // fn sensor_distances(&self) -> [f64; 5] {
+    //     // we initially consider the robot pointing rightward, so the sensor array is vertical (x constant)
+    //     let mut sensor_positions = [
+    //         Vector2::<f64>::new(
+    //             SENSOR_DISTANCE_TO_ROBOT_CENTER,
+    //             2.0 * SENSOR_ARRAY_SEPARATION,
+    //         ),
+    //         Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, SENSOR_ARRAY_SEPARATION),
+    //         Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, 0.0),
+    //         Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, -SENSOR_ARRAY_SEPARATION),
+    //         Vector2::<f64>::new(
+    //             SENSOR_DISTANCE_TO_ROBOT_CENTER,
+    //             -2.0 * SENSOR_ARRAY_SEPARATION,
+    //         ),
+    //     ];
 
-        // now we rotate the sensor array by theta counter-clockwise
-        // and translate it by (x, y)
-        for p in sensor_positions.iter_mut() {
-            let rotation = Rotation2::new(self.state[2]);
-            let rotated = rotation * (*p);
-            *p = Vector2::<f64>::new(self.state[0], self.state[1]) + rotated;
-        }
+    //     // now we rotate the sensor array by theta counter-clockwise
+    //     // and translate it by (x, y)
+    //     for p in sensor_positions.iter_mut() {
+    //         let rotation = Rotation2::new(self.state[2]);
+    //         let rotated = rotation * (*p);
+    //         *p = Vector2::<f64>::new(self.state[0], self.state[1]) + rotated;
+    //     }
 
-        let mut sensor_distances = [0.0f64; 5];
-        for i in 0..5 {
-            if let Some(d) = self.path.sdf(sensor_positions[i].x, sensor_positions[i].y) {
-                sensor_distances[i] = d.abs();
-            } else {
-                sensor_distances[i] = 1e10;
-            }
-        }
-        sensor_distances
-    }
+    //     let mut sensor_distances = [0.0f64; 5];
+    //     for i in 0..5 {
+    //         if let Some(d) = self.path.sdf(sensor_positions[i].x, sensor_positions[i].y) {
+    //             sensor_distances[i] = d.abs();
+    //         } else {
+    //             sensor_distances[i] = 1e10;
+    //         }
+    //     }
+    //     sensor_distances
+    // }
 
-    fn sensor_signals(&self) -> [f64; 5] {
-        let sensor_distances = self.sensor_distances();
-        let mut sensor_signals = [0.0f64; 5];
-        for i in 0..5 {
-            if sensor_distances[i] < TRACK_WIDTH / 2.0 {
-                sensor_signals[i] = 0.0;
-            } else {
-                sensor_signals[i] = 1.0;
-            }
-        }
-        sensor_signals
-    }
+    // fn sensor_signals(&self) -> [f64; 5] {
+    //     let sensor_distances = self.sensor_distances();
+    //     let mut sensor_signals = [0.0f64; 5];
+    //     for i in 0..5 {
+    //         if sensor_distances[i] < TRACK_WIDTH / 2.0 {
+    //             sensor_signals[i] = 0.0;
+    //         } else {
+    //             sensor_signals[i] = 1.0;
+    //         }
+    //     }
+    //     sensor_signals
+    // }
 
     pub fn step(&mut self, dt: f64) {
         self.integrator.step(dt, &self.controls);

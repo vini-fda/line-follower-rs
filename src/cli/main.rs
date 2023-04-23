@@ -1,9 +1,9 @@
-use line_follower_rs::geometry::sdf_paths::predefined_closed_path_sdf;
+use line_follower_rs::geometry::closed_path::predefined_closed_path;
 use line_follower_rs::simulation::optimizer::RobotOptimizer;
 use std::sync::Arc;
 
 fn main() {
-    let main_path_sdf = Arc::new(predefined_closed_path_sdf());
+    let main_path_sdf = Arc::new(predefined_closed_path());
 
     let ts = 1.0 / 60.0;
     let t_total = 120.0;

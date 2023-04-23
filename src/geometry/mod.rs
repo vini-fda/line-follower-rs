@@ -1,2 +1,4 @@
-pub mod interpolated_paths;
-pub mod sdf_paths;
+pub mod arc_path;
+pub mod closed_path;
+pub mod line_path;
+pub mod track;
