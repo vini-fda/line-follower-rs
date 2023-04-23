@@ -1,6 +1,19 @@
-# Line Follower Simulation
+# line-follower-rs
 
-# TODO:
+There are two binaries in this Cargo project:
+
+- `line_follower_gui`: the simulation with a graphical interface
+- `line_follower_cli`: a CMA-ES-based optimization algorithm to find the best controller parameters (Kp, Ki, Kd and speed) for the robot
+
+## `line_follower_gui`
+
+This is a simple simulation of a line follower robot. The robot is controlled by a feedback controller that uses the light sensors to detect the line. The robot is placed on a track, which is a smooth curve. It is controlled by a two-wheel differential drive (TWD), which means that it can move in a straight line if the wheels are moving at the same speed and make a turn if the wheels are moving at different speeds.
+
+Here's an image of the simulation:
+
+![Simulation](./images/simulation_gui.png)
+
+## TODO
 
 ## Graphics
 
@@ -35,7 +48,7 @@
     - This can create a differential drive robot, which moves in a straight line if the wheels are moving at the same speed and makes a turn if the wheels are moving at different speeds
 - [x] The robot will implement some sort of controller
     - [x] The controller will follow a feedback control scheme using sensor data
-    - [ ] The controller must be discretized using a state-space representation
+    - [x] The controller must be discretized using a state-space representation
         - [ ] As *extra* work, we could treat the controller sample frequency as different from the simulation frequency
 
 ### Track
@@ -47,8 +60,8 @@
 
 ## GUI
 
-- [ ] Add elements to control the simulation
-    - [ ] Add a button to start/stop the simulation
+- [x] Add elements to control the simulation
+    - [x] Add a button to start/stop the simulation
     - [ ] Add a button to reset the simulation
     - [ ] Add a slider to control the speed of the simulation
 - [ ] Plot the robot's orientation (angle) and error (detected by the sensors) in real-time graphs
