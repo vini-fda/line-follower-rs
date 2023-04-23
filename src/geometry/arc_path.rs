@@ -49,10 +49,9 @@ where
         let v = p - self.center;
         let ord0 = cross(&self.v0, &v);
         let ord1 = cross(&v, &self.v1);
-        let b = ord0 >= F::zero() && ord1 >= F::zero();
         match self.convex {
-            true => b,
-            false => !b,
+            true => ord0 >= F::zero() && ord1 >= F::zero(),
+            false => ord0 <= F::zero() && ord1 <= F::zero(),
         }
     }
 }
