@@ -3,99 +3,21 @@ use egui::{RichText, TextStyle};
 use itertools::Itertools;
 use line_follower_rs::geometry::closed_path::predefined_closed_path;
 use line_follower_rs::geometry::track::sample_points;
-use line_follower_rs::graphics::draw::draw_closed_curve;
-use line_follower_rs::math_utils::{lattice_points, sigmoid};
+use line_follower_rs::graphics::draw::{draw_closed_curve, ROBOT_SIDE_LENGTH, SENSOR_ARRAY_LENGTH};
+//use line_follower_rs::math_utils::{lattice_points, sigmoid};
 use line_follower_rs::ode_solver::ode_system::Vector;
 use line_follower_rs::simulation::robot::RobotSimulation;
+use line_follower_rs::utils::math::sigmoid;
 use macroquad::miniquad::conf::Icon;
-use macroquad::prelude::*;
+use macroquad::color::Color;
+use macroquad::prelude::{Vec2, KeyCode, is_key_down, vec2, Camera2D, mouse_wheel, GREEN, YELLOW, RED, SKYBLUE, PURPLE};
+use macroquad::shapes::draw_circle;
+use macroquad::window::{Conf, screen_width, screen_height, next_frame};
 use std::f32::consts::PI;
 use std::sync::Arc;
 
-const ROBOT_SIDE_LENGTH: f32 = 0.1;
-const SENSOR_ARRAY_LENGTH: f32 = ROBOT_SIDE_LENGTH * 1.1;
 const MAX_ZOOM: f32 = 15.0;
 const MIN_ZOOM: f32 = 0.01;
-
-fn draw_vector(x: f32, y: f32, dx: f32, dy: f32, color: Color) {
-    draw_line(x, y, x + dx, y + dy, 0.01, color);
-}
-
-fn draw_robot(x: f32, y: f32, angle: f32, color: Color) {
-    let angle = angle - 90.0;
-    let w = ROBOT_SIDE_LENGTH;
-    let r = w / 2f32.sqrt();
-
-    let (cos_t, sin_t) = ((angle * PI / 180.0).cos(), (angle * PI / 180.0).sin());
-    let l = SENSOR_ARRAY_LENGTH;
-    draw_line(
-        x + l * 0.5 * (cos_t - sin_t),
-        y + l * 0.5 * (cos_t + sin_t),
-        x - l * 0.5 * (cos_t + sin_t),
-        y + l * 0.5 * (cos_t - sin_t),
-        0.02,
-        BLUE,
-    );
-    draw_poly(x, y, 4, r, angle + 45.0, color);
-}
-
-fn draw_grid(origin: Vec2, camera: &Camera2D, dx: f32, dy: f32) {
-    // draw an "infinite" grid which is zoomable and pannable
-    // uses draw_grid_from_bounds
-    // the bounds depend on the camera's zoom and position
-    // calculate min_bounds and max_bounds in world space
-    let (w, h) = (screen_width(), screen_height());
-    let min_bounds = camera.screen_to_world(vec2(0., h));
-    let max_bounds = camera.screen_to_world(vec2(w, 0.));
-    draw_grid_from_bounds(origin, min_bounds, max_bounds, dx, dy);
-}
-
-fn draw_grid_from_bounds(origin: Vec2, min_bounds: Vec2, max_bounds: Vec2, dx: f32, dy: f32) {
-    // draw an "infinite" grid which is zoomable and pannable
-    let (x_0, y_0) = (origin[0], origin[1]);
-    let (x_min, y_min) = (min_bounds[0], min_bounds[1]);
-    let (x_max, y_max) = (max_bounds[0], max_bounds[1]);
-    let range_x = lattice_points(x_0, x_min, x_max, dx);
-    let range_y = lattice_points(y_0, y_min, y_max, dy);
-    const THICKNESS: f32 = 0.005;
-    const ALPHA: f32 = 0.3;
-    for x in range_x {
-        draw_line(
-            x,
-            y_min,
-            x,
-            y_max,
-            THICKNESS,
-            Color::new(0.5, 0.5, 0.5, ALPHA),
-        );
-    }
-    for y in range_y {
-        draw_line(
-            x_min,
-            y,
-            x_max,
-            y,
-            THICKNESS,
-            Color::new(0.5, 0.5, 0.5, ALPHA),
-        );
-    }
-    draw_line(
-        0.0,
-        y_min,
-        0.0,
-        y_max,
-        THICKNESS * 1.1,
-        Color::new(0., 0., 0., ALPHA),
-    );
-    draw_line(
-        x_min,
-        0.0,
-        x_max,
-        0.0,
-        THICKNESS * 1.1,
-        Color::new(0., 0., 0., ALPHA),
-    );
-}
 
 // PID Constants
 const KP: f64 = 2.565933287511912; //3.49;
@@ -212,7 +134,7 @@ async fn main() {
     egui_macroquad::draw();
 
     loop {
-        clear_background(color_scheme.background());
+        macroquad::window::clear_background(color_scheme.background());
 
         // WASD camera movement
         let mut camera_velocity: Vec2 = Vec2::ZERO;
@@ -250,7 +172,7 @@ async fn main() {
 
         let mouse_world_pos = camera.screen_to_world(macroquad::input::mouse_position().into());
 
-        set_camera(&camera);
+        macroquad::prelude::set_camera(&camera);
 
         if !paused {
             // run one simulation step
@@ -475,12 +397,12 @@ async fn main() {
         });
 
         if should_draw_grid {
-            draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
+            line_follower_rs::graphics::draw::draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
         }
 
         draw_closed_curve(&path_points, color_scheme.path(), 0.03);
 
-        draw_robot(
+        line_follower_rs::graphics::draw::draw_robot(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             robot_sim.get_state()[2] as f32 * 180.0 / PI,
@@ -490,7 +412,7 @@ async fn main() {
         draw_circle(pr.x as f32, pr.y as f32, 0.05, PURPLE);
         let tr = robot_sim.reference_tangent();
         // draw tangent vector to reference point
-        draw_vector(
+        line_follower_rs::graphics::draw::draw_vector(
             pr.x as f32,
             pr.y as f32,
             tr.x as f32 * 0.1,
@@ -499,7 +421,7 @@ async fn main() {
         );
         // draw robot projection tangent vector
         let projection_tangent = robot_sim.robot_projection_tangent();
-        draw_vector(
+        line_follower_rs::graphics::draw::draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             projection_tangent[0] as f32 * 0.1,
@@ -509,7 +431,7 @@ async fn main() {
 
         // draw robot direction vector
         let theta = robot_sim.get_state()[2] as f32;
-        draw_vector(
+        line_follower_rs::graphics::draw::draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             theta.cos() * 0.1,
