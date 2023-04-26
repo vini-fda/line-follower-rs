@@ -20,10 +20,10 @@ const MAX_ZOOM: f32 = 15.0;
 const MIN_ZOOM: f32 = 0.01;
 
 // PID Constants
-const KP: f64 = 2.565933287511912; //3.49;
-const KI: f64 = 52.33814267275805; //37.46;
-const KD: f64 = 10.549477731373042; //13.79;
-const SPEED: f64 = 1.4602563968294984; //1.04;
+const KP: f64 = 3.130480505558367;//2.565933287511912; //3.49;
+const KI: f64 = 73.01770822094774;//52.33814267275805; //37.46;
+const KD: f64 = 11.273635752474997;//10.549477731373042; //13.79;
+const SPEED: f64 = 1.6710281486754923;//1.4602563968294984; //1.04;
 
 // Kp: , Ki: , Kd:
 
@@ -100,6 +100,9 @@ async fn main() {
 
     let mut show_omega_plot = false;
     let mut show_robot_distance_plot = false;
+
+    // control simulation speed
+    let mut speed_multiplier = 1;
 
     // pause simulation
     let mut paused = false;
@@ -178,17 +181,19 @@ async fn main() {
         if !paused {
             const STEPS: usize = 4;
             const STEP_SIZE: f64 = DT / STEPS as f64;
-            for _ in 0..STEPS {
-                robot_sim.step(STEP_SIZE);
+            for _ in 0..speed_multiplier{
+                for _ in 0..STEPS {
+                    robot_sim.step(STEP_SIZE);
+                }
+                wl_history[wl_i] = robot_sim.get_state()[3] as f32;
+                wl_i = (wl_i + 1) % wl_history.len();
+
+                wr_history[wr_i] = robot_sim.get_state()[5] as f32;
+                wr_i = (wr_i + 1) % wl_history.len();
+
+                robot_sdf_history[i] = robot_sim.robot_sdf_to_path() as f32;
+                i = (i + 1) % robot_sdf_history.len();
             }
-            wl_history[wl_i] = robot_sim.get_state()[3] as f32;
-            wl_i = (wl_i + 1) % wl_history.len();
-
-            wr_history[wr_i] = robot_sim.get_state()[5] as f32;
-            wr_i = (wr_i + 1) % wl_history.len();
-
-            robot_sdf_history[i] = robot_sim.robot_sdf_to_path() as f32;
-            i = (i + 1) % robot_sdf_history.len();
         }
         // calculate zoom from mouse scroll
         let mw = sigmoid(mouse_wheel().1) - 0.5;
@@ -215,6 +220,12 @@ async fn main() {
                     ui.checkbox(&mut should_draw_grid, "Draw grid");
                     ui.checkbox(&mut follow_robot, "Follow robot with camera");
                     ui.checkbox(&mut paused, "Pause simulation");
+                    // simulation speed label
+                    let sim_speed_label = ui.label("Simulation speed: ");
+                    ui.add(
+                        egui::Slider::new(&mut speed_multiplier, 1..=3)
+                            .clamp_to_range(true),
+                    ).labelled_by(sim_speed_label.id);
                     // edit egui's pixels per point
                     let ppp_label = ui.label("Pixels per point: ");
                     let response = ui
