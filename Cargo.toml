@@ -19,10 +19,11 @@ macroquad = "0.3.25"
 egui_demo_lib = "0.21.0"
 num = "0.4.0"
 itertools = "0.10.5"
-nalgebra = "0.32.2"
+nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 cmaes = "0.2.1"
 chrono = "0.4.24"
 ico = "0.3.0"
+serde = { version = "1.0.160", features = ["derive"] }
 
 [profile.release]
 opt-level = 2

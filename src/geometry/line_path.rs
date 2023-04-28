@@ -1,9 +1,10 @@
 use crate::utils::{math::cross, traits::Float};
 use nalgebra::{distance, Point2, Vector2};
+use serde::{Serialize, Deserialize};
 
 use super::track::Track;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinePath<F: Float> {
     pub p0: Point2<F>,
     pub p1: Point2<F>,
