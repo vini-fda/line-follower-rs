@@ -9,6 +9,9 @@ where
     fn first_point(&self) -> Point2<F> {
         self.point_at(F::zero())
     }
+    fn last_point(&self) -> Point2<F> {
+        self.point_at(self.length())
+    }
     fn point_at(&self, d: F) -> Point2<F>;
     fn tangent_at(&self, d: F) -> Vector2<F>;
     fn point_projection_distance(&self, p: Point2<F>) -> F;
