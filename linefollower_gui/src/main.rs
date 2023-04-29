@@ -1,13 +1,12 @@
 use egui::plot::{Legend, Line, PlotPoints, Points};
 use egui::{RichText, TextStyle};
 use itertools::Itertools;
-use line_follower_rs::geometry::closed_path::predefined_closed_path;
-use line_follower_rs::geometry::track::sample_points;
-use line_follower_rs::graphics::draw::{draw_closed_curve, ROBOT_SIDE_LENGTH, SENSOR_ARRAY_LENGTH};
-//use line_follower_rs::math_utils::{lattice_points, sigmoid};
-use line_follower_rs::ode_solver::ode_system::Vector;
-use line_follower_rs::simulation::robot::RobotSimulation;
-use line_follower_rs::utils::math::sigmoid;
+use linefollower_core::geometry::closed_path::predefined_closed_path;
+use linefollower_core::geometry::track::sample_points;
+use linefollower_core::ode_solver::ode_system::Vector;
+use linefollower_core::simulation::robot::RobotSimulation;
+use linefollower_core::utils::math::sigmoid;
+use linefollower_gui::graphics::draw::{draw_closed_curve, ROBOT_SIDE_LENGTH, SENSOR_ARRAY_LENGTH};
 use macroquad::miniquad::conf::Icon;
 use macroquad::color::Color;
 use macroquad::prelude::{Vec2, KeyCode, is_key_down, vec2, Camera2D, mouse_wheel, GREEN, YELLOW, RED, SKYBLUE, PURPLE};
@@ -54,7 +53,7 @@ impl ColorScheme {
 }
 
 fn window_conf() -> Conf {
-    let file_bytes = include_bytes!("../../assets/logo.ico");
+    let file_bytes = include_bytes!("../assets/logo.ico");
     let icon_dir = ico::IconDir::read(std::io::Cursor::new(file_bytes.as_slice())).unwrap();
     const EXPECTED_NUM_ICONS: usize = 3;
     assert_eq!(EXPECTED_NUM_ICONS, icon_dir.entries().len());
@@ -412,12 +411,12 @@ async fn main() {
         });
 
         if should_draw_grid {
-            line_follower_rs::graphics::draw::draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
+            linefollower_gui::graphics::draw::draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
         }
 
         draw_closed_curve(&path_points, color_scheme.path(), 0.03);
 
-        line_follower_rs::graphics::draw::draw_robot(
+        linefollower_gui::graphics::draw::draw_robot(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             robot_sim.get_state()[2] as f32 * 180.0 / PI,
@@ -427,7 +426,7 @@ async fn main() {
         draw_circle(pr.x as f32, pr.y as f32, 0.05, PURPLE);
         let tr = robot_sim.reference_tangent();
         // draw tangent vector to reference point
-        line_follower_rs::graphics::draw::draw_vector(
+        linefollower_gui::graphics::draw::draw_vector(
             pr.x as f32,
             pr.y as f32,
             tr.x as f32 * 0.1,
@@ -436,7 +435,7 @@ async fn main() {
         );
         // draw robot projection tangent vector
         let projection_tangent = robot_sim.robot_projection_tangent();
-        line_follower_rs::graphics::draw::draw_vector(
+        linefollower_gui::graphics::draw::draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             projection_tangent[0] as f32 * 0.1,
@@ -446,7 +445,7 @@ async fn main() {
 
         // draw robot direction vector
         let theta = robot_sim.get_state()[2] as f32;
-        line_follower_rs::graphics::draw::draw_vector(
+        linefollower_gui::graphics::draw::draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             theta.cos() * 0.1,

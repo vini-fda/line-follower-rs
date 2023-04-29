@@ -4,8 +4,8 @@ use macroquad::prelude::*;
 use macroquad::{prelude::Color, shapes::draw_line};
 use nalgebra::Point2;
 
-use crate::utils::math::lattice_points;
-use crate::utils::traits::Float;
+use linefollower_core::utils::math::lattice_points;
+use linefollower_core::utils::traits::Float;
 pub const ROBOT_SIDE_LENGTH: f32 = 0.1;
 pub const SENSOR_ARRAY_LENGTH: f32 = ROBOT_SIDE_LENGTH * 1.1;
 

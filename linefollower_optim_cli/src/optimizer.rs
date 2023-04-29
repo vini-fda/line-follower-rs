@@ -1,5 +1,5 @@
-use super::robot::RobotSimulation;
-use crate::{geometry::closed_path::ClosedPath, ode_solver::ode_system::Vector};
+use linefollower_core::simulation::robot::RobotSimulation;
+use linefollower_core::{geometry::closed_path::ClosedPath, ode_solver::ode_system::Vector};
 use cmaes::{
     objective_function::Scale,
     restart::{RestartOptions, BIPOP, IPOP},

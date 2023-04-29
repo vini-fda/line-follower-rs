@@ -1,11 +1,11 @@
-use line_follower_rs::geometry::closed_path::predefined_closed_path;
-use line_follower_rs::simulation::optimizer::RobotOptimizer;
+use linefollower_core::geometry::closed_path::predefined_closed_path;
+use linefollower_optim_cli::optimizer::RobotOptimizer;
 use std::sync::Arc;
 
 fn main() {
     let main_path_sdf = Arc::new(predefined_closed_path());
 
-    let ts = 1.0 / 60.0;
+    let ts = 1.0 / 240.0;
     let t_total = 120.0;
     let n = (t_total / ts) as usize;
     let best_ks = RobotOptimizer::new(n, ts, main_path_sdf).find_optimal_multithreaded();
