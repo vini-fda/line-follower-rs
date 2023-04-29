@@ -6,3 +6,4 @@ edition = { workspace = true }
 [dependencies]
 egui = "0.21.0"
 eframe = "0.21.3"
+linefollower_core = { workspace = true }
