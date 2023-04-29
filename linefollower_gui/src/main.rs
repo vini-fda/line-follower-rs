@@ -7,11 +7,13 @@ use linefollower_core::ode_solver::ode_system::Vector;
 use linefollower_core::simulation::robot::RobotSimulation;
 use linefollower_core::utils::math::sigmoid;
 use linefollower_gui::graphics::draw::{draw_closed_curve, ROBOT_SIDE_LENGTH, SENSOR_ARRAY_LENGTH};
-use macroquad::miniquad::conf::Icon;
 use macroquad::color::Color;
-use macroquad::prelude::{Vec2, KeyCode, is_key_down, vec2, Camera2D, mouse_wheel, GREEN, YELLOW, RED, SKYBLUE, PURPLE};
+use macroquad::miniquad::conf::Icon;
+use macroquad::prelude::{
+    is_key_down, mouse_wheel, vec2, Camera2D, KeyCode, Vec2, GREEN, PURPLE, RED, SKYBLUE, YELLOW,
+};
 use macroquad::shapes::draw_circle;
-use macroquad::window::{Conf, screen_width, screen_height, next_frame};
+use macroquad::window::{next_frame, screen_height, screen_width, Conf};
 use std::f32::consts::PI;
 use std::sync::Arc;
 
@@ -19,10 +21,10 @@ const MAX_ZOOM: f32 = 15.0;
 const MIN_ZOOM: f32 = 0.01;
 
 // PID Constants
-const KP: f64 = 3.130480505558367;//2.565933287511912; //3.49;
-const KI: f64 = 73.01770822094774;//52.33814267275805; //37.46;
-const KD: f64 = 11.273635752474997;//10.549477731373042; //13.79;
-const SPEED: f64 = 1.6710281486754923;//1.4602563968294984; //1.04;
+const KP: f64 = 3.130480505558367; //2.565933287511912; //3.49;
+const KI: f64 = 73.01770822094774; //52.33814267275805; //37.46;
+const KD: f64 = 11.273635752474997; //10.549477731373042; //13.79;
+const SPEED: f64 = 1.6710281486754923; //1.4602563968294984; //1.04;
 
 // Kp: , Ki: , Kd:
 
@@ -180,7 +182,7 @@ async fn main() {
         if !paused {
             const STEPS: usize = 4;
             const STEP_SIZE: f64 = DT / STEPS as f64;
-            for _ in 0..speed_multiplier{
+            for _ in 0..speed_multiplier {
                 for _ in 0..STEPS {
                     robot_sim.step(STEP_SIZE);
                 }
@@ -221,10 +223,8 @@ async fn main() {
                     ui.checkbox(&mut paused, "Pause simulation");
                     // simulation speed label
                     let sim_speed_label = ui.label("Simulation speed: ");
-                    ui.add(
-                        egui::Slider::new(&mut speed_multiplier, 1..=3)
-                            .clamp_to_range(true),
-                    ).labelled_by(sim_speed_label.id);
+                    ui.add(egui::Slider::new(&mut speed_multiplier, 1..=3).clamp_to_range(true))
+                        .labelled_by(sim_speed_label.id);
                     // edit egui's pixels per point
                     let ppp_label = ui.label("Pixels per point: ");
                     let response = ui

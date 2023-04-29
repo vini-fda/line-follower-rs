@@ -1,10 +1,10 @@
-use linefollower_core::simulation::robot::RobotSimulation;
-use linefollower_core::{geometry::closed_path::ClosedPath, ode_solver::ode_system::Vector};
 use cmaes::{
     objective_function::Scale,
     restart::{RestartOptions, BIPOP, IPOP},
     CMAESOptions, ObjectiveFunction, ParallelObjectiveFunction, PlotOptions,
 };
+use linefollower_core::simulation::robot::RobotSimulation;
+use linefollower_core::{geometry::closed_path::ClosedPath, ode_solver::ode_system::Vector};
 use std::sync::Arc;
 
 pub struct RobotOptimizer {

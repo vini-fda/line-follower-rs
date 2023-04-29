@@ -1,5 +1,5 @@
-use std::f32::consts::PI;
 use macroquad::prelude::*;
+use std::f32::consts::PI;
 
 use macroquad::{prelude::Color, shapes::draw_line};
 use nalgebra::Point2;

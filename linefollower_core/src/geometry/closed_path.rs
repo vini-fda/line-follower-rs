@@ -4,8 +4,8 @@ use crate::new_arc_path;
 use crate::new_line_path;
 use crate::utils::traits::Float;
 use nalgebra::{Point2, Vector2};
+use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
-use serde::{Serialize, Deserialize};
 
 use super::track::Track;
 
@@ -172,7 +172,10 @@ pub fn predefined_closed_path() -> ClosedPath<f64> {
     ])
 }
 
-pub fn is_valid_closed_path<F>(subpaths: &[SubPath<F>]) -> bool where F: Float {
+pub fn is_valid_closed_path<F>(subpaths: &[SubPath<F>]) -> bool
+where
+    F: Float,
+{
     // checks if the subpaths form a valid closed path
     // a valid closed path is a path that starts and ends at the same point
     // and the subpaths are connected to each other

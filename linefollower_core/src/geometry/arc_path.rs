@@ -1,6 +1,6 @@
 use crate::utils::{math::cross, traits::Float};
 use nalgebra::{distance, Point2, Vector2};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use super::track::Track;
 
