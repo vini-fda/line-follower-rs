@@ -2274,6 +2274,7 @@ dependencies = [
  "eframe",
  "egui",
  "linefollower_core",
+ "nalgebra 0.32.2",
 ]
 
 [[package]]

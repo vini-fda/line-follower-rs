@@ -1,4 +1,7 @@
 use crate::canvas::Canvas;
+use egui::*;
+use linefollower_core::geometry::{closed_path::SubPath, line_path::LinePath};
+use nalgebra::Point2;
 
 #[derive(Default)]
 pub struct PathEditorApp {
@@ -13,6 +16,8 @@ enum Tool {
     ArcPath,
     LinePath,
 }
+
+
 
 impl PathEditorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
