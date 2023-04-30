@@ -20,6 +20,16 @@ impl Default for Canvas {
 
 impl Canvas {
     pub fn ui(&mut self, ui: &mut Ui) {
+        //paint
+        let painter = Painter::new(
+            ui.ctx().clone(),
+            ui.layer_id(),
+            ui.available_rect_before_wrap(),
+        );
+        self.paint(&painter);
+        // Make sure we allocate what we used (everything)
+        ui.expand_to_include_rect(painter.clip_rect());
+        // get input
         const MIN_ZOOM: f32 = 0.1;
         const MAX_ZOOM: f32 = 10.0;
         // get mouse scroll to adjust zoom
@@ -42,10 +52,8 @@ impl Canvas {
         };
         const SPEED: f32 = 0.01;
         let mut v = Vec2::ZERO;
-        // TODO: check how to implement this withou "hiccups"
-        // I think the hiccups are caused by the fact that the UI is retained
-        // so it takes a while for new events to happen, which in turn
-        // makes you wait about 0.5 seconds before the repeated "Hold" event kicks in
+        // ATTENTION: currently this has been fixed
+        // by putting the UI in continuous mode
         if ui.input(|i| i.key_down(Key::W)) {
             ui.label("W is down!");
             v += vec2(0.0, 1.0);
@@ -70,15 +78,7 @@ impl Canvas {
         }
         move_center(v);
 
-        //paint
-        let painter = Painter::new(
-            ui.ctx().clone(),
-            ui.layer_id(),
-            ui.available_rect_before_wrap(),
-        );
-        self.paint(&painter);
-        // Make sure we allocate what we used (everything)
-        ui.expand_to_include_rect(painter.clip_rect());
+
         // get mouse position
         let pos = ui.input(|i| i.pointer.hover_pos());
         // show mouse position

@@ -37,5 +37,11 @@ impl eframe::App for PathEditorApp {
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.tool = Tool::Free;
         }
+        // Taken from the egui demo (crates/egui_demo_app/src/backend_panel.rs)
+        // "To ensure the UI is up to date you need to call `egui::Context::request_repaint()` each
+        // time such an event happens. You can also chose to call `request_repaint()` once every second
+        // or after every single frame - this is called [`Continuous`](RunMode::Continuous) mode,
+        // and for games and interactive tools that need repainting every frame anyway, this should be the default."
+        ctx.request_repaint();
     }
 }
