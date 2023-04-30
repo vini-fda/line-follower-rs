@@ -4,8 +4,8 @@ use linefollower_core::{geometry::closed_path::SubPath, utils::math::sigmoid};
 
 pub struct Canvas {
     pub subpaths: Vec<SubPath<f64>>,
-    zoom: f32,
-    focus_center: Pos2,
+    pub zoom: f32,
+    pub focus_center: Pos2,
 }
 
 impl Default for Canvas {
