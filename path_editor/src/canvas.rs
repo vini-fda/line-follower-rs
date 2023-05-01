@@ -51,6 +51,12 @@ impl Canvas {
         painter.extend(std::iter::once(shape));
     }
 
+    pub fn draw_circle(&self, painter: &Painter, stroke: Stroke, center: Pos2, radius: f32) {
+        let center = self.to_screen(painter, center);
+        let shape = egui::Shape::circle_stroke(center, radius, stroke);
+        painter.extend(std::iter::once(shape));
+    }
+
     fn draw_displayable_subpaths(&self, painter: &Painter, displayable_subpaths: &[Vec<Pos2>]) {
         let green_stroke = Stroke::new(1.0, Color32::from_rgb(25, 200, 100));
 
@@ -63,15 +69,6 @@ impl Canvas {
             });
 
         painter.extend(shapes);
-    }
-
-    pub fn screen_to_world(&self, pos: Pos2, painter: &Painter) -> Pos2 {
-        let rect = painter.clip_rect();
-        let mut sqr_prop = rect.square_proportions() / self.zoom;
-        sqr_prop.y *= -1.0;
-        let to_world =
-            emath::RectTransform::from_to(rect, Rect::from_center_size(Pos2::ZERO, sqr_prop));
-        to_world * pos
     }
 
     fn world_to_screen_transform(&self, painter: &Painter) -> emath::RectTransform {

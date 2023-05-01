@@ -10,14 +10,9 @@ use crate::{
 };
 use egui::*;
 use linefollower_core::{
-    geometry::{
-        closed_path::SubPath,
-        line_path::LinePath,
-        track::{sample_points, Track},
-    },
+    geometry::{closed_path::SubPath, line_path::LinePath, track::Track},
     utils::math::sigmoid,
 };
-use nalgebra::Point2;
 
 pub struct Curves {
     // these are the subpaths used for exporting
@@ -26,6 +21,8 @@ pub struct Curves {
     // this holds equivalent data, but is used
     // for display purposes
     pub displayable_subpaths: Vec<Vec<Pos2>>,
+    // extremal points (used for snapping)
+    pub extremal_points: Vec<[Pos2; 2]>,
 }
 
 impl Curves {
@@ -33,6 +30,7 @@ impl Curves {
         Self {
             subpaths: Vec::new(),
             displayable_subpaths: Vec::new(),
+            extremal_points: Vec::new(),
         }
     }
 
@@ -40,7 +38,12 @@ impl Curves {
         // sample points from subpath
         let samples = generate_displayable_points(&subpath);
         self.displayable_subpaths.push(samples);
-        self.subpaths.push(subpath)
+        let extremities = [
+            subpath.first_point().into_pos2(),
+            subpath.last_point().into_pos2(),
+        ];
+        self.extremal_points.push(extremities);
+        self.subpaths.push(subpath);
     }
 }
 
@@ -175,17 +178,36 @@ impl eframe::App for PathEditorApp {
                 // Make sure we allocate what we used (everything)
                 ui.expand_to_include_rect(painter.clip_rect());
                 // check for mouse click
-                if response.hovered() && ui.input(|i| i.pointer.primary_clicked()) {
-                    let pos = ui.input(|i| i.pointer.interact_pos());
-                    if let Some(pos) = pos {
-                        println!("pos (screen) = [{:.4}, {:.4}]", pos.x, pos.y);
-                        let pos = self.canvas.to_world(&painter, pos);
-                        println!("pos (world) = [{:.4}, {:.4}]", pos.x, pos.y);
-                        let subpath = self.tool.on_click(pos);
-                        if let Some(subpath) = subpath {
-                            self.curves.add_subpath(subpath);
-                            response.mark_changed();
+                if response.hovered() {
+                    const SNAP_RADIUS: f32 = 30.0;
+                    if ui.input(|i| i.pointer.primary_clicked()) {
+                        let pos = ui.input(|i| i.pointer.interact_pos());
+                        if let Some(mut pos) = pos {
+                            println!("pos (screen) = [{:.4}, {:.4}]", pos.x, pos.y);
+                            // snapping
+                            for snap_point in self.curves.extremal_points.iter().flatten() {
+                                let snap_point = self.canvas.to_screen(&painter, *snap_point);
+                                let distance = snap_point.distance(pos);
+                                if distance <= SNAP_RADIUS {
+                                    pos = snap_point;
+                                    break;
+                                }
+                            }
+                            println!("pos (snap) = [{:.4}, {:.4}]", pos.x, pos.y);
+                            let pos = self.canvas.to_world(&painter, pos);
+                            println!("pos (world) = [{:.4}, {:.4}]", pos.x, pos.y);
+                            let subpath = self.tool.on_click(pos);
+                            if let Some(subpath) = subpath {
+                                self.curves.add_subpath(subpath);
+                                response.mark_changed();
+                            }
                         }
+                    }
+                    // show snap radius
+                    let blue_stroke = Stroke::new(0.5, Color32::BLUE);
+                    for snap_point in self.curves.extremal_points.iter().flatten() {
+                        self.canvas
+                            .draw_circle(&painter, blue_stroke, *snap_point, SNAP_RADIUS);
                     }
                 }
 
