@@ -37,6 +37,7 @@ impl Default for LinePathTool {
 }
 
 impl Tool for LinePathTool {
+    fn on_input(&mut self, _input: &InputState) {}
     fn on_click(&mut self, p: Pos2) -> Option<SubPath<f64>> {
         match self.state {
             LinePathToolState::Start => {

@@ -2,6 +2,7 @@ use crate::{
     canvas::Canvas,
     tools::{
         arc_tool::ArcPathTool,
+        free_tool::FreeTool,
         line_tool::{LinePathTool, LineStart},
         tool::Tool,
     },
@@ -167,6 +168,8 @@ impl eframe::App for PathEditorApp {
                     move_center(v);
                 }
 
+                ui.input(|i| self.tool.on_input(i));
+
                 let (mut response, painter) =
                     ui.allocate_painter(ui.available_size(), Sense::click().union(Sense::hover()));
                 // Make sure we allocate what we used (everything)
@@ -237,7 +240,8 @@ impl eframe::App for PathEditorApp {
         // if the user presses ESC, the tool will switch to Free
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.tooltype = ToolType::Free;
-            self.tool.reset_state();
+            self.tool = Box::new(FreeTool {});
+            //self.tool.reset_state();
         }
         // Taken from the egui demo (crates/egui_demo_app/src/backend_panel.rs)
         // "To ensure the UI is up to date you need to call `egui::Context::request_repaint()` each

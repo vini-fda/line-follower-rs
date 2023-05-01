@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use crate::{canvas::Canvas, utils::IntoPos2};
 
 use super::{super::utils::IntoPoint2, tool::Tool};
-use egui::{Color32, Painter, Pos2, Stroke, Ui};
+use egui::{Color32, InputState, Key, Painter, Pos2, Stroke, Ui};
 use linefollower_core::geometry::{arc_path::ArcPath, closed_path::SubPath};
 use nalgebra::{ComplexField, Point2, Vector2};
 
@@ -15,6 +15,7 @@ pub enum ArcPathToolState {
 
 pub struct ArcPathTool {
     state: ArcPathToolState,
+    counterclockwise: bool,
     center: Point2<f64>,
     p0: Point2<f64>,
     theta0: f64,
@@ -25,6 +26,7 @@ impl ArcPathTool {
     pub fn new() -> Self {
         Self {
             state: ArcPathToolState::Start,
+            counterclockwise: true,
             center: Point2::new(0.0, 0.0),
             p0: Point2::new(0.0, 0.0),
             theta0: 0.0,
@@ -42,6 +44,15 @@ impl ArcPathTool {
             t
         }
     }
+    fn correct_angle(&self, theta1: &mut f64) {
+        if self.counterclockwise {
+            if *theta1 < self.theta0 {
+                *theta1 += 2.0 * PI;
+            }
+        } else if *theta1 > self.theta0 {
+            *theta1 -= 2.0 * PI;
+        }
+    }
 }
 
 impl Default for ArcPathTool {
@@ -51,6 +62,11 @@ impl Default for ArcPathTool {
 }
 
 impl Tool for ArcPathTool {
+    fn on_input(&mut self, input: &InputState) {
+        if input.key_pressed(Key::G) {
+            self.counterclockwise = !self.counterclockwise;
+        }
+    }
     fn on_click(&mut self, p: Pos2) -> Option<SubPath<f64>> {
         match self.state {
             ArcPathToolState::Start => {
@@ -70,9 +86,8 @@ impl Tool for ArcPathTool {
                 self.state = ArcPathToolState::Start;
                 let v1 = p.into_point2() - self.center;
                 let mut theta1 = self.vector_angle(v1);
-                if theta1 < self.theta0 {
-                    theta1 += 2.0 * PI;
-                }
+                self.correct_angle(&mut theta1);
+
                 Some(SubPath::Arc(ArcPath::new(
                     self.center,
                     self.r,
@@ -106,9 +121,8 @@ impl Tool for ArcPathTool {
                     let p = canvas.to_world(painter, mouse_pos);
                     let v1 = p.into_point2() - self.center;
                     let mut theta1 = self.vector_angle(v1);
-                    if theta1 < self.theta0 {
-                        theta1 += 2.0 * PI;
-                    }
+                    self.correct_angle(&mut theta1);
+
                     let dtheta = theta1 - self.theta0;
                     const NUM_POINTS: u32 = 100;
                     let path: Vec<Pos2> = (0..=NUM_POINTS)
