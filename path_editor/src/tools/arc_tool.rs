@@ -1,7 +1,7 @@
-use egui::Pos2;
-use linefollower_core::geometry::{closed_path::SubPath, arc_path::ArcPath};
-use nalgebra::Point2;
 use super::super::utils::IntoPoint2;
+use egui::Pos2;
+use linefollower_core::geometry::{arc_path::ArcPath, closed_path::SubPath};
+use nalgebra::Point2;
 
 pub struct ArcStart {}
 pub struct CenterPoint {
@@ -24,9 +24,7 @@ impl ArcToolState for FirstArcPoint {}
 
 impl ArcPathTool<ArcStart> {
     pub fn new() -> Self {
-        Self {
-            state: ArcStart {},
-        }
+        Self { state: ArcStart {} }
     }
     fn add_point(&mut self, p: Pos2) -> ArcPathTool<CenterPoint> {
         ArcPathTool {

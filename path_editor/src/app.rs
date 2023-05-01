@@ -1,8 +1,17 @@
-use crate::{canvas::Canvas, tools::{tool::Tool, line_tool::{LinePathTool, LineStart}}, utils::IntoPos2};
+use crate::{
+    canvas::Canvas,
+    tools::{
+        line_tool::{LinePathTool, LineStart},
+        tool::Tool,
+    },
+    utils::IntoPos2,
+};
 use egui::*;
-use linefollower_core::{geometry::{closed_path::SubPath, line_path::LinePath, track::sample_points}, utils::math::sigmoid};
+use linefollower_core::{
+    geometry::{closed_path::SubPath, line_path::LinePath, track::sample_points},
+    utils::math::sigmoid,
+};
 use nalgebra::Point2;
-
 
 pub struct Curves {
     // these are the subpaths used for exporting
@@ -31,12 +40,12 @@ impl Curves {
 
 pub fn generate_displayable_points(subpath: &SubPath<f64>) -> Vec<Pos2> {
     match subpath {
-        SubPath::Arc(arc) => {
-            sample_points(arc, 0.01).map(|p| p.into_pos2()).collect::<Vec<_>>()
-        },
+        SubPath::Arc(arc) => sample_points(arc, 0.01)
+            .map(|p| p.into_pos2())
+            .collect::<Vec<_>>(),
         SubPath::Line(line) => {
             vec![line.p0.into_pos2(), line.p1.into_pos2()]
-        },
+        }
     }
 }
 
@@ -87,14 +96,14 @@ enum ToolType {
 
 // impl Paintable for SubPath<f64> {
 //     fn paint(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {
-        
+
 //     }
 // }
 
 impl PathEditorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         Self {
-            tool: Box::new(super::tools::free_tool::FreeTool{}),
+            tool: Box::new(super::tools::free_tool::FreeTool {}),
             tooltype: ToolType::Free,
             canvas: Canvas::default(),
             curves: Curves::new(),
@@ -153,7 +162,7 @@ impl eframe::App for PathEditorApp {
                 }
 
                 let (mut response, painter) =
-                ui.allocate_painter(ui.available_size(), Sense::click().union(Sense::hover()));
+                    ui.allocate_painter(ui.available_size(), Sense::click().union(Sense::hover()));
                 // Make sure we allocate what we used (everything)
                 ui.expand_to_include_rect(painter.clip_rect());
                 // check for mouse click
@@ -171,22 +180,39 @@ impl eframe::App for PathEditorApp {
                     }
                 }
 
-                self.canvas.draw(ui, &painter, self.tool.as_ref(), &self.curves.displayable_subpaths);
+                self.canvas.draw(
+                    ui,
+                    &painter,
+                    self.tool.as_ref(),
+                    &self.curves.displayable_subpaths,
+                );
             });
         egui::Window::new("Tools").show(ctx, |ui| {
             // Tool selector: either ArcPath or LinePath creators
             // ui.selectable_value(&mut self.tooltype, ToolType::Free, "Free");
             // ui.selectable_value(&mut self.tooltype, ToolType::ArcPath, "Arc Path");
             // ui.selectable_value(&mut self.tooltype, ToolType::LinePath, "Line Path");
-            if ui.add(SelectableLabel::new(self.tooltype == ToolType::Free, "Free")).clicked() {
+            if ui
+                .add(SelectableLabel::new(
+                    self.tooltype == ToolType::Free,
+                    "Free",
+                ))
+                .clicked()
+            {
                 self.tooltype = ToolType::Free;
-                self.tool = Box::new(super::tools::free_tool::FreeTool{});
+                self.tool = Box::new(super::tools::free_tool::FreeTool {});
             }
             // if ui.add(SelectableLabel::new(self.tooltype == ToolType::ArcPath, "Arc Path")).clicked() {
             //     self.tooltype = ToolType::ArcPath;
             //     self.tool = Box::new(super::tools::arc_tool::ArcTool::default());
             // }
-            if ui.add(SelectableLabel::new(self.tooltype == ToolType::LinePath, "Line Path")).clicked() {
+            if ui
+                .add(SelectableLabel::new(
+                    self.tooltype == ToolType::LinePath,
+                    "Line Path",
+                ))
+                .clicked()
+            {
                 self.tooltype = ToolType::LinePath;
                 self.tool = Box::<LinePathTool>::default();
             }

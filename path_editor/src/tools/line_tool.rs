@@ -1,7 +1,7 @@
+use crate::{canvas::Canvas, utils::IntoPos2};
 use egui::*;
 use linefollower_core::geometry::{closed_path::SubPath, line_path::LinePath};
 use nalgebra::Point2;
-use crate::{canvas::Canvas, utils::IntoPos2};
 
 use super::{super::utils::IntoPoint2, tool::Tool};
 
@@ -29,16 +29,12 @@ impl LinePathTool {
         }
     }
 
-
-
     fn screen_to_world(&self, pos: Pos2, canvas: &Canvas, painter: &Painter) -> Pos2 {
         let rect = painter.clip_rect();
         let mut sqr_prop = rect.square_proportions() / canvas.zoom;
         sqr_prop.y *= -1.0;
-        let to_world = emath::RectTransform::from_to(
-            rect,
-            Rect::from_center_size(Pos2::ZERO, sqr_prop),
-        );
+        let to_world =
+            emath::RectTransform::from_to(rect, Rect::from_center_size(Pos2::ZERO, sqr_prop));
         to_world * pos
     }
 }
