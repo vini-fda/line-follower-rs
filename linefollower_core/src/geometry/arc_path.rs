@@ -13,7 +13,7 @@ pub struct ArcPath<F: Float> {
     p0: Point2<F>,
     v0: Vector2<F>,
     v1: Vector2<F>,
-    convex: bool,
+    counterclockwise: bool,
     length: F,
 }
 
@@ -28,7 +28,7 @@ where
             "the arc path must have a non-zero length"
         );
         let length = r * num::Float::abs(delta_t);
-        let convex = delta_t > F::zero();
+        let counterclockwise = delta_t > F::zero();
         let v0 = Vector2::new(num::Float::cos(theta0), num::Float::sin(theta0));
         let v1 = Vector2::new(num::Float::cos(theta1), num::Float::sin(theta1));
         let p0 = center + v0 * r;
@@ -41,7 +41,7 @@ where
             p0,
             v0,
             v1,
-            convex,
+            counterclockwise,
             length,
         }
     }
@@ -50,7 +50,7 @@ where
         let v = p - self.center;
         let ord0 = cross(&self.v0, &v);
         let ord1 = cross(&v, &self.v1);
-        match self.convex {
+        match self.counterclockwise {
             true => ord0 >= F::zero() && ord1 >= F::zero(),
             false => ord0 <= F::zero() && ord1 <= F::zero(),
         }
@@ -67,7 +67,7 @@ where
             return F::infinity();
         }
         let mut signed_dist = distance(&p, &self.center) - self.r;
-        if !self.convex {
+        if !self.counterclockwise {
             signed_dist = -signed_dist;
         }
         signed_dist
@@ -85,7 +85,7 @@ where
         // returns the point X on the path after traveling a distance d
         // the point X is on the arc path
         // assumes that d is within the bounds of the arc path
-        let theta = match self.convex {
+        let theta = match self.counterclockwise {
             true => d / self.r,
             false => -d / self.r,
         };
@@ -100,7 +100,7 @@ where
         // returns the tangent vector at the point X on the path after traveling a distance d
         // the point X is on the arc path
         // assumes that d is within the bounds of the arc path
-        let theta = match self.convex {
+        let theta = match self.counterclockwise {
             true => d / self.r,
             false => -d / self.r,
         };
@@ -108,7 +108,7 @@ where
             -num::Float::sin(self.theta0 + theta),
             num::Float::cos(self.theta0 + theta),
         );
-        if self.convex {
+        if self.counterclockwise {
             v
         } else {
             -v
