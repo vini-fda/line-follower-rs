@@ -1,4 +1,4 @@
-use egui::{InputState, Painter, Ui};
+use egui::{InputState, Painter, Response, Ui};
 
 use crate::canvas::Canvas;
 
@@ -7,7 +7,7 @@ use super::tool::Tool;
 pub struct FreeTool {}
 
 impl Tool for FreeTool {
-    fn on_input(&mut self, _input: &InputState) {}
+    fn on_input(&mut self, _response: &Response, _input: &InputState) {}
     fn on_click(
         &mut self,
         _p: egui::Pos2,

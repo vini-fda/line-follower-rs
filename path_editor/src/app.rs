@@ -4,6 +4,7 @@ use crate::{
         arc_tool::ArcPathTool,
         free_tool::FreeTool,
         line_tool::{LinePathTool, LineStart},
+        select_tool::SelectTool,
         tool::Tool,
     },
     utils::{IntoPoint2, IntoPos2},
@@ -78,6 +79,7 @@ enum ToolType {
     Free,
     ArcPath,
     LinePath,
+    SelectPath,
 }
 
 impl PathEditorApp {
@@ -141,8 +143,6 @@ impl eframe::App for PathEditorApp {
                     move_center(v);
                 }
 
-                ui.input(|i| self.tool.on_input(i));
-
                 let (mut response, painter) =
                     ui.allocate_painter(ui.available_size(), Sense::click().union(Sense::hover()));
                 // Make sure we allocate what we used (everything)
@@ -180,6 +180,7 @@ impl eframe::App for PathEditorApp {
                             .draw_circle(&painter, blue_stroke, *snap_point, SNAP_RADIUS);
                     }
                 }
+                ui.input(|i| self.tool.on_input(&response, i));
                 self.canvas
                     .draw_displayable_subpaths(&painter, &self.curves.displayable_subpaths);
                 let green_stroke = Stroke::new(1.0, Color32::from_rgb(25, 200, 100));
@@ -233,6 +234,16 @@ impl eframe::App for PathEditorApp {
             {
                 self.tooltype = ToolType::LinePath;
                 self.tool = Box::<LinePathTool>::default();
+            }
+            if ui
+                .add(SelectableLabel::new(
+                    self.tooltype == ToolType::SelectPath,
+                    "Selection",
+                ))
+                .clicked()
+            {
+                self.tooltype = ToolType::SelectPath;
+                self.tool = Box::<SelectTool>::default();
             }
         });
         egui::Window::new("Subpaths").show(ctx, |ui| {

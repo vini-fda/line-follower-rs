@@ -3,7 +3,7 @@ use std::f64::consts::PI;
 use crate::{canvas::Canvas, utils::IntoPos2};
 
 use super::{super::utils::IntoPoint2, tool::Tool};
-use egui::{Color32, InputState, Key, Painter, Pos2, Stroke, Ui};
+use egui::{Color32, InputState, Key, Painter, Pos2, Response, Stroke, Ui};
 use linefollower_core::geometry::{arc_path::ArcPath, closed_path::SubPath};
 use nalgebra::{ComplexField, Point2, Vector2};
 
@@ -62,7 +62,7 @@ impl Default for ArcPathTool {
 }
 
 impl Tool for ArcPathTool {
-    fn on_input(&mut self, input: &InputState) {
+    fn on_input(&mut self, _response: &Response, input: &InputState) {
         if input.key_pressed(Key::G) {
             self.counterclockwise = !self.counterclockwise;
         }
