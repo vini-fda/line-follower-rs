@@ -28,7 +28,7 @@ where
             "the arc path must have a non-zero length"
         );
         let length = r * num::Float::abs(delta_t);
-        let convex = num::Float::sin(delta_t) > F::zero();
+        let convex = delta_t > F::zero();
         let v0 = Vector2::new(num::Float::cos(theta0), num::Float::sin(theta0));
         let v1 = Vector2::new(num::Float::cos(theta1), num::Float::sin(theta1));
         let p0 = center + v0 * r;
