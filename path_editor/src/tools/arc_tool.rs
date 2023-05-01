@@ -1,5 +1,6 @@
 use egui::Pos2;
 use linefollower_core::geometry::{closed_path::SubPath, arc_path::ArcPath};
+use nalgebra::Point2;
 use super::super::utils::IntoPoint2;
 
 pub struct ArcStart {}
@@ -52,8 +53,8 @@ impl ArcPathTool<CenterPoint> {
 }
 
 impl ArcPathTool<FirstArcPoint> {
-    fn create_arc(&self, p: Pos2) -> SubPath<f32> {
-        let p0 = self.state.p0.into_point2();
+    fn create_arc(&self, p: Pos2) -> SubPath<f64> {
+        let p0: Point2<f64> = self.state.p0.into_point2();
         let p1 = p.into_point2();
         let center = self.state.center.into_point2();
         let v0 = p0 - center;

@@ -1,7 +1,14 @@
-use super::paintable::Paintable;
+use egui::{Painter, Ui};
+
+use crate::canvas::Canvas;
+
+use super::tool::Tool;
 
 pub struct FreeTool {}
 
-impl Paintable for FreeTool {
-    fn paint(&self, _ui: &egui::Ui, _canvas: &crate::canvas::Canvas, _painter: &egui::Painter) {}
+impl Tool for FreeTool {
+    fn on_click(&mut self, _p: egui::Pos2) -> Option<linefollower_core::geometry::closed_path::SubPath<f64>> {
+        None
+    }
+    fn draw(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {}
 }
