@@ -1,6 +1,7 @@
 use crate::{
     canvas::Canvas,
     tools::{
+        arc_tool::ArcPathTool,
         line_tool::{LinePathTool, LineStart},
         tool::Tool,
     },
@@ -8,7 +9,11 @@ use crate::{
 };
 use egui::*;
 use linefollower_core::{
-    geometry::{closed_path::SubPath, line_path::LinePath, track::sample_points},
+    geometry::{
+        closed_path::SubPath,
+        line_path::LinePath,
+        track::{sample_points, Track},
+    },
     utils::math::sigmoid,
 };
 use nalgebra::Point2;
@@ -40,7 +45,8 @@ impl Curves {
 
 pub fn generate_displayable_points(subpath: &SubPath<f64>) -> Vec<Pos2> {
     match subpath {
-        SubPath::Arc(arc) => sample_points(arc, 0.01)
+        SubPath::Arc(arc) => arc
+            .sample_points_num(100)
             .map(|p| p.into_pos2())
             .collect::<Vec<_>>(),
         SubPath::Line(line) => {
@@ -202,10 +208,16 @@ impl eframe::App for PathEditorApp {
                 self.tooltype = ToolType::Free;
                 self.tool = Box::new(super::tools::free_tool::FreeTool {});
             }
-            // if ui.add(SelectableLabel::new(self.tooltype == ToolType::ArcPath, "Arc Path")).clicked() {
-            //     self.tooltype = ToolType::ArcPath;
-            //     self.tool = Box::new(super::tools::arc_tool::ArcTool::default());
-            // }
+            if ui
+                .add(SelectableLabel::new(
+                    self.tooltype == ToolType::ArcPath,
+                    "Arc Path",
+                ))
+                .clicked()
+            {
+                self.tooltype = ToolType::ArcPath;
+                self.tool = Box::<ArcPathTool>::default();
+            }
             if ui
                 .add(SelectableLabel::new(
                     self.tooltype == ToolType::LinePath,
@@ -225,6 +237,7 @@ impl eframe::App for PathEditorApp {
         // if the user presses ESC, the tool will switch to Free
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.tooltype = ToolType::Free;
+            self.tool.reset_state();
         }
         // Taken from the egui demo (crates/egui_demo_app/src/backend_panel.rs)
         // "To ensure the UI is up to date you need to call `egui::Context::request_repaint()` each
