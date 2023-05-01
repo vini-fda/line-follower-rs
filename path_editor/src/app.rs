@@ -6,7 +6,7 @@ use crate::{
         line_tool::{LinePathTool, LineStart},
         tool::Tool,
     },
-    utils::IntoPos2,
+    utils::{IntoPoint2, IntoPos2},
 };
 use egui::*;
 use linefollower_core::{
@@ -180,13 +180,24 @@ impl eframe::App for PathEditorApp {
                             .draw_circle(&painter, blue_stroke, *snap_point, SNAP_RADIUS);
                     }
                 }
-
-                self.canvas.draw(
-                    ui,
-                    &painter,
-                    self.tool.as_ref(),
-                    &self.curves.displayable_subpaths,
-                );
+                self.canvas
+                    .draw_displayable_subpaths(&painter, &self.curves.displayable_subpaths);
+                let green_stroke = Stroke::new(1.0, Color32::from_rgb(25, 200, 100));
+                for subpath in &self.curves.subpaths {
+                    const NUM_SAMPLES: usize = 10;
+                    let points = subpath.sample_points_num(NUM_SAMPLES);
+                    let tangents = subpath.sample_tangents_num(NUM_SAMPLES);
+                    let subpath_iter = points.zip(tangents);
+                    for (point, dir) in subpath_iter {
+                        self.canvas.draw_direction_arrow(
+                            &painter,
+                            green_stroke,
+                            point.cast::<f32>().into(),
+                            dir.cast::<f32>().into(),
+                        );
+                    }
+                }
+                self.tool.draw(ui, &self.canvas, &painter);
             });
         egui::Window::new("Tools").show(ctx, |ui| {
             // Tool selector: either ArcPath or LinePath creators

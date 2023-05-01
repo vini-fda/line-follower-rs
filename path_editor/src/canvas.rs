@@ -1,6 +1,13 @@
+use std::f32::consts::PI;
+
 // based on https://github.com/emilk/egui/blob/master/crates/egui_demo_app/src/wrap_app.rs lines 43-52
 use egui::{containers::*, widgets::*, *};
-use linefollower_core::{geometry::closed_path::SubPath, utils::math::sigmoid};
+use linefollower_core::{
+    geometry::{closed_path::SubPath, track::Track},
+    utils::math::sigmoid,
+};
+use mint::{Point2, Vector2};
+use nalgebra as na;
 
 use crate::tools::tool::Tool;
 
@@ -25,14 +32,6 @@ impl Default for Canvas {
 }
 
 impl Canvas {
-    pub fn draw<T>(&self, ui: &Ui, painter: &Painter, tool: &T, curves: &[Vec<Pos2>])
-    where
-        T: Tool + ?Sized,
-    {
-        self.draw_displayable_subpaths(painter, curves);
-        tool.draw(ui, self, painter);
-    }
-
     pub fn to_screen(&self, painter: &Painter, p: Pos2) -> Pos2 {
         let transform = self.world_to_screen_transform(painter);
 
@@ -51,13 +50,35 @@ impl Canvas {
         painter.extend(std::iter::once(shape));
     }
 
+    pub fn draw_direction_arrow(
+        &self,
+        painter: &Painter,
+        stroke: Stroke,
+        center: Point2<f32>,
+        dir: Vector2<f32>,
+    ) {
+        const LENGTH: f32 = 0.005;
+        let shift = 5.0 * PI / 6.0;
+        let rotation = na::Rotation2::new(shift);
+        let center_na: na::Point2<f32> = center.into();
+        let dir_na: na::Vector2<f32> = dir.into();
+        let p_right: Point2<f32> = (center_na + rotation * dir_na * LENGTH).into();
+        let p_left: Point2<f32> = (center_na + rotation.inverse() * dir_na * LENGTH).into();
+        let points = [p_left, center, p_right]
+            .into_iter()
+            .map(|p| self.to_screen(painter, p.into()))
+            .collect();
+        let shape = egui::Shape::line(points, stroke);
+        painter.extend(std::iter::once(shape));
+    }
+
     pub fn draw_circle(&self, painter: &Painter, stroke: Stroke, center: Pos2, radius: f32) {
         let center = self.to_screen(painter, center);
         let shape = egui::Shape::circle_stroke(center, radius, stroke);
         painter.extend(std::iter::once(shape));
     }
 
-    fn draw_displayable_subpaths(&self, painter: &Painter, displayable_subpaths: &[Vec<Pos2>]) {
+    pub fn draw_displayable_subpaths(&self, painter: &Painter, displayable_subpaths: &[Vec<Pos2>]) {
         let green_stroke = Stroke::new(1.0, Color32::from_rgb(25, 200, 100));
 
         let shapes = displayable_subpaths

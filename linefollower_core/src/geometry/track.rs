@@ -28,6 +28,15 @@ where
                 .map(|d| self.point_at(d)),
         )
     }
+    fn sample_tangents_num(&self, n: usize) -> Box<dyn Iterator<Item = Vector2<F>> + '_> {
+        let nf = F::from_usize(n).unwrap();
+        let delta = self.length() / nf;
+        Box::new(
+            (0..=n)
+                .map(move |i| F::from_usize(i).unwrap() * delta)
+                .map(|d| self.tangent_at(d)),
+        )
+    }
 }
 
 pub fn sample_points<F, T>(track: &T, dx: F) -> impl Iterator<Item = Point2<F>> + '_
