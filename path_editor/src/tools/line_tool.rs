@@ -51,6 +51,9 @@ impl Tool for LinePathTool {
             }
         }
     }
+    fn reset_state(&mut self) {
+        self.state = LinePathToolState::Start;
+    }
     fn draw(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {
         if let LinePathToolState::OnePoint = self.state {
             if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {

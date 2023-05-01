@@ -14,4 +14,5 @@ impl Tool for FreeTool {
         None
     }
     fn draw(&self, _ui: &Ui, _canvas: &Canvas, _painter: &Painter) {}
+    fn reset_state(&mut self) {}
 }
