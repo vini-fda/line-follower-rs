@@ -19,6 +19,15 @@ where
         let d = self.point_projection_distance(p);
         self.tangent_at(d)
     }
+    fn sample_points_num(&self, n: usize) -> Box<dyn Iterator<Item = Point2<F>> + '_> {
+        let nf = F::from_usize(n).unwrap();
+        let delta = self.length() / nf;
+        Box::new(
+            (0..=n)
+                .map(move |i| F::from_usize(i).unwrap() * delta)
+                .map(|d| self.point_at(d)),
+        )
+    }
 }
 
 pub fn sample_points<F, T>(track: &T, dx: F) -> impl Iterator<Item = Point2<F>> + '_
