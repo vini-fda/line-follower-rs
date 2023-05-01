@@ -28,15 +28,6 @@ impl LinePathTool {
             p0: Point2::new(0.0, 0.0),
         }
     }
-
-    fn screen_to_world(&self, pos: Pos2, canvas: &Canvas, painter: &Painter) -> Pos2 {
-        let rect = painter.clip_rect();
-        let mut sqr_prop = rect.square_proportions() / canvas.zoom;
-        sqr_prop.y *= -1.0;
-        let to_world =
-            emath::RectTransform::from_to(rect, Rect::from_center_size(Pos2::ZERO, sqr_prop));
-        to_world * pos
-    }
 }
 
 impl Default for LinePathTool {
@@ -44,42 +35,6 @@ impl Default for LinePathTool {
         Self::new()
     }
 }
-
-// impl Paintable for LinePathTool {
-//     fn paint(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {
-//         if let LinePathToolState::OnePoint = self.state {
-//             // let mut shapes: Vec<Shape> = Vec::new();
-//             // let rect = painter.clip_rect();
-//             // let mut sqr_prop = rect.square_proportions() / canvas.zoom;
-//             // sqr_prop.y *= -1.0;
-//             // let to_screen = emath::RectTransform::from_to(
-//             //     Rect::from_center_size(Pos2::ZERO, sqr_prop),
-//             //     rect,
-//             // );
-//             // let mut paint_line = |points: [Pos2; 2], color: Color32, width: f32| {
-//             //     let line = [to_screen * (points[0] - canvas.focus_center).to_pos2(), to_screen * (points[1] - canvas.focus_center).to_pos2()];
-
-//             //     // culling
-//             //     if rect.intersects(Rect::from_two_pos(line[0], line[1])) {
-//             //         shapes.push(Shape::line_segment(line, (width, color)));
-//             //     }
-//             // };
-//             // let start = self.p0.into_pos2();
-//             // let mouse_pos = ui.input(|i| i.pointer.hover_pos());
-//             // if let Some(mouse_pos) = mouse_pos {
-//             //     let end = self.screen_to_world(mouse_pos, canvas, painter);
-//             //     paint_line([start, end], Color32::from_rgb(255, 0, 0), 1.0);
-//             //     painter.extend(shapes);
-//             // }
-//             let mouse_pos = ui.input(|i| i.pointer.hover_pos());
-//             if let Some(p1) = mouse_pos {
-//                 let red = Color32::from_rgb(255, 0, 0);
-//                 let p0 = canvas.to_screen(painter, self.p0.into_pos2());
-//                 canvas.draw_line_from_screen_coords(painter, p0, p1, red);
-//             }
-//         }
-//     }
-// }
 
 impl Tool for LinePathTool {
     fn on_click(&mut self, p: Pos2) -> Option<SubPath<f64>> {
