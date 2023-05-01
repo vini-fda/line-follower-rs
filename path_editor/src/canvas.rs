@@ -45,6 +45,12 @@ impl Canvas {
         (transform * p) + self.focus_center.to_vec2()
     }
 
+    pub fn draw_path(&self, painter: &Painter, stroke: Stroke, path: &[Pos2]) {
+        let points: Vec<Pos2> = path.iter().map(|p| self.to_screen(painter, *p)).collect();
+        let shape = egui::Shape::line(points, stroke);
+        painter.extend(std::iter::once(shape));
+    }
+
     fn draw_displayable_subpaths(&self, painter: &Painter, displayable_subpaths: &[Vec<Pos2>]) {
         let green_stroke = Stroke::new(1.0, Color32::from_rgb(25, 200, 100));
 
