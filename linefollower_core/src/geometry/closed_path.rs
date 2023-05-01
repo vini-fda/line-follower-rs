@@ -53,6 +53,28 @@ where
             SubPath::Line(line) => line.point_projection_distance(p),
         }
     }
+    // SAME implementation as the default
+    // just did this to fix the error:
+    // error[E0599]: no method named `sample_tangents_num` found for enum `SubPath` in the current scope
+    // BUG REPORT??
+    fn sample_points_num(&self, n: usize) -> Box<dyn Iterator<Item = Point2<F>> + '_> {
+        let nf = F::from_usize(n).unwrap();
+        let delta = self.length() / nf;
+        Box::new(
+            (0..=n)
+                .map(move |i| F::from_usize(i).unwrap() * delta)
+                .map(|d| self.point_at(d)),
+        )
+    }
+    fn sample_tangents_num(&self, n: usize) -> Box<dyn Iterator<Item = Vector2<F>> + '_> {
+        let nf = F::from_usize(n).unwrap();
+        let delta = self.length() / nf;
+        Box::new(
+            (0..=n)
+                .map(move |i| F::from_usize(i).unwrap() * delta)
+                .map(|d| self.tangent_at(d)),
+        )
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]

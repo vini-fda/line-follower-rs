@@ -9,7 +9,7 @@ use linefollower_core::{
 use mint::{Point2, Vector2};
 use nalgebra as na;
 
-use crate::tools::tool::Tool;
+use crate::{tools::tool::Tool, utils::IntoPos2};
 
 pub struct Canvas {
     pub zoom: f32,
@@ -28,6 +28,18 @@ impl Canvas {
 impl Default for Canvas {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub fn generate_displayable_points(subpath: &SubPath<f64>) -> Vec<Pos2> {
+    match subpath {
+        SubPath::Arc(arc) => arc
+            .sample_points_num(100)
+            .map(|p| p.into_pos2())
+            .collect::<Vec<_>>(),
+        SubPath::Line(line) => {
+            vec![line.p0.into_pos2(), line.p1.into_pos2()]
+        }
     }
 }
 
@@ -76,6 +88,17 @@ impl Canvas {
         let center = self.to_screen(painter, center);
         let shape = egui::Shape::circle_stroke(center, radius, stroke);
         painter.extend(std::iter::once(shape));
+    }
+
+    pub fn draw_subpaths<'a, T: Iterator<Item = &'a SubPath<f64>>>(
+        &self,
+        painter: &Painter,
+        subpaths: T,
+    ) {
+        let displayable_subpaths: Vec<Vec<Pos2>> = subpaths
+            .map(|ref subpath| generate_displayable_points(subpath))
+            .collect();
+        self.draw_displayable_subpaths(painter, &displayable_subpaths);
     }
 
     pub fn draw_displayable_subpaths(&self, painter: &Painter, displayable_subpaths: &[Vec<Pos2>]) {

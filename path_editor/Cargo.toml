@@ -7,5 +7,6 @@ edition = { workspace = true }
 egui = { version = "0.21.0", features = ["mint", "cint", "bytemuck"] }
 mint = { version = "0.5.9" }
 eframe = "0.21.3"
+petgraph = "0.6.3"
 nalgebra = { workspace = true }
 linefollower_core = { workspace = true }

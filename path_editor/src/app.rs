@@ -12,65 +12,35 @@ use crate::{
 use egui::*;
 use linefollower_core::{
     geometry::{closed_path::SubPath, line_path::LinePath, track::Track},
-    utils::math::sigmoid,
+    utils::{math::sigmoid, traits::Float},
 };
+use mint::Point2;
+use petgraph::prelude::DiGraph;
 
-pub struct Curves {
-    // these are the subpaths used for exporting
-    // and making calculations
-    pub subpaths: Vec<SubPath<f64>>,
-    // this holds equivalent data, but is used
-    // for display purposes
-    pub displayable_subpaths: Vec<Vec<Pos2>>,
-    // extremal points (used for snapping)
-    pub extremal_points: Vec<[Pos2; 2]>,
-}
-
-impl Curves {
-    pub fn new() -> Self {
-        Self {
-            subpaths: Vec::new(),
-            displayable_subpaths: Vec::new(),
-            extremal_points: Vec::new(),
-        }
-    }
-
-    pub fn add_subpath(&mut self, subpath: SubPath<f64>) {
-        // sample points from subpath
-        let samples = generate_displayable_points(&subpath);
-        self.displayable_subpaths.push(samples);
-        let extremities = [
-            subpath.first_point().into_pos2(),
-            subpath.last_point().into_pos2(),
-        ];
-        self.extremal_points.push(extremities);
-        self.subpaths.push(subpath);
-    }
-}
-
-pub fn generate_displayable_points(subpath: &SubPath<f64>) -> Vec<Pos2> {
-    match subpath {
-        SubPath::Arc(arc) => arc
-            .sample_points_num(100)
-            .map(|p| p.into_pos2())
-            .collect::<Vec<_>>(),
-        SubPath::Line(line) => {
-            vec![line.p0.into_pos2(), line.p1.into_pos2()]
-        }
-    }
-}
-
-impl Default for Curves {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+type CurveGraph = DiGraph<Point2<f32>, SubPath<f64>>;
 
 pub struct PathEditorApp {
     tooltype: ToolType,
     canvas: Canvas,
     tool: Box<dyn Tool>,
-    curves: Curves,
+    curve_graph: CurveGraph,
+}
+
+trait AddSubPath<F>
+where
+    F: Float,
+{
+    fn add_subpath(&mut self, subpath: SubPath<F>);
+}
+
+impl AddSubPath<f64> for CurveGraph {
+    fn add_subpath(&mut self, subpath: SubPath<f64>) {
+        let p0 = subpath.first_point();
+        let p1 = subpath.last_point();
+        let i0 = self.add_node(p0.cast::<f32>().into());
+        let i1 = self.add_node(p1.cast::<f32>().into());
+        self.add_edge(i0, i1, subpath);
+    }
 }
 
 #[derive(Default, PartialEq)]
@@ -88,7 +58,7 @@ impl PathEditorApp {
             tool: Box::new(super::tools::free_tool::FreeTool {}),
             tooltype: ToolType::Free,
             canvas: Canvas::default(),
-            curves: Curves::new(),
+            curve_graph: DiGraph::new(),
         }
     }
 }
@@ -155,8 +125,10 @@ impl eframe::App for PathEditorApp {
                         if let Some(mut pos) = pos {
                             println!("pos (screen) = [{:.4}, {:.4}]", pos.x, pos.y);
                             // snapping
-                            for snap_point in self.curves.extremal_points.iter().flatten() {
-                                let snap_point = self.canvas.to_screen(&painter, *snap_point);
+                            for snap_point in
+                                self.curve_graph.raw_nodes().iter().map(|node| node.weight)
+                            {
+                                let snap_point = self.canvas.to_screen(&painter, snap_point.into());
                                 let distance = snap_point.distance(pos);
                                 if distance <= SNAP_RADIUS {
                                     pos = snap_point;
@@ -168,23 +140,29 @@ impl eframe::App for PathEditorApp {
                             println!("pos (world) = [{:.4}, {:.4}]", pos.x, pos.y);
                             let subpath = self.tool.on_click(pos);
                             if let Some(subpath) = subpath {
-                                self.curves.add_subpath(subpath);
+                                self.curve_graph.add_subpath(subpath);
                                 response.mark_changed();
                             }
                         }
                     }
                     // show snap radius
                     let blue_stroke = Stroke::new(0.5, Color32::BLUE);
-                    for snap_point in self.curves.extremal_points.iter().flatten() {
-                        self.canvas
-                            .draw_circle(&painter, blue_stroke, *snap_point, SNAP_RADIUS);
+                    for snap_point in self.curve_graph.raw_nodes().iter().map(|node| node.weight) {
+                        self.canvas.draw_circle(
+                            &painter,
+                            blue_stroke,
+                            snap_point.into(),
+                            SNAP_RADIUS,
+                        );
                     }
                 }
                 ui.input(|i| self.tool.on_input(&response, i));
-                self.canvas
-                    .draw_displayable_subpaths(&painter, &self.curves.displayable_subpaths);
+                self.canvas.draw_subpaths(
+                    &painter,
+                    self.curve_graph.raw_edges().iter().map(|edge| &edge.weight),
+                );
                 let green_stroke = Stroke::new(1.0, Color32::from_rgb(25, 200, 100));
-                for subpath in &self.curves.subpaths {
+                for subpath in self.curve_graph.raw_edges().iter().map(|edge| &edge.weight) {
                     const NUM_SAMPLES: usize = 10;
                     let points = subpath.sample_points_num(NUM_SAMPLES);
                     let tangents = subpath.sample_tangents_num(NUM_SAMPLES);
@@ -247,7 +225,7 @@ impl eframe::App for PathEditorApp {
             }
         });
         egui::Window::new("Subpaths").show(ctx, |ui| {
-            for subpath in &self.curves.subpaths {
+            for subpath in self.curve_graph.raw_edges().iter().map(|edge| &edge.weight) {
                 ui.label(format!("{:?}", subpath));
             }
         });
