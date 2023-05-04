@@ -6,6 +6,7 @@ use egui::{Color32, InputState, Painter, Pos2, Response, Ui};
 use linefollower_core::geometry::closed_path::{ClosedPath, SubPath};
 use mint::Point2;
 use petgraph::{stable_graph::NodeIndex, visit::NodeRef};
+use std::io::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SelectToolState {
@@ -18,6 +19,7 @@ pub struct SelectTool {
     p0: Pos2,
     closed_path: Option<ClosedPath<f64>>,
     closed_path_json: Option<String>,
+    save_file_name: String,
 }
 
 impl SelectTool {
@@ -27,13 +29,22 @@ impl SelectTool {
             p0: Pos2::ZERO,
             closed_path: None,
             closed_path_json: None,
+            save_file_name: String::new(),
         }
     }
-    pub fn ui(&self, ui: &mut Ui) {
+    pub fn ui(&mut self, ui: &mut Ui) {
         ui.label("Selected Track");
         ui.separator();
         match self.closed_path_json {
             Some(ref closed_path_json) => {
+                ui.text_edit_singleline(&mut self.save_file_name);
+                if ui.button("Save track").clicked() {
+                    // save the json into a file
+                    // let the user choose the file name
+                    
+                    let mut file = std::fs::File::create(&self.save_file_name).unwrap();
+                    file.write_all(closed_path_json.as_bytes()).unwrap();
+                }
                 ui.label(closed_path_json);
             }
             None => {

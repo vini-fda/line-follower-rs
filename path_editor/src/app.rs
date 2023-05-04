@@ -188,7 +188,7 @@ impl eframe::App for PathEditorApp {
             }
         });
         egui::Window::new("Current Selection").show(ctx, |ui| {
-            if let Tool::Select(ref select) = self.tool {
+            if let Tool::Select(ref mut select) = self.tool {
                 select.ui(ui);
             }
         });
