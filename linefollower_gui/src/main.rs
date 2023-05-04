@@ -2,7 +2,7 @@ use egui::plot::{Legend, Line, PlotPoints, Points};
 use egui::{RichText, TextStyle};
 use itertools::Itertools;
 use linefollower_core::geometry::closed_path::predefined_closed_path;
-use linefollower_core::geometry::track::sample_points;
+use linefollower_core::geometry::track::{sample_points, Track};
 use linefollower_core::ode_solver::ode_system::Vector;
 use linefollower_core::simulation::robot::RobotSimulation;
 use linefollower_core::utils::math::sigmoid;
@@ -117,18 +117,11 @@ async fn main() {
 
     let mut wr_history = [0.0f32; 600];
     let mut wr_i = 0;
-    let main_path = predefined_closed_path();
-    let path_points = sample_points(&main_path, 0.1).collect_vec();
 
-    let initial_condition = Vector::<7>::from_column_slice(&[0.0, -4.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
-    let mut robot_sim = RobotSimulation::new(
-        initial_condition,
-        KP,
-        KI,
-        KD,
-        SPEED,
-        Arc::new(main_path.clone()),
-    );
+    // whether the user has selected a path
+    let mut path_selected = false;
+    // default path
+    let mut main_path = predefined_closed_path();
 
     // initial config of egui context
     egui_macroquad::ui(|egui_ctx| {
@@ -137,6 +130,48 @@ async fn main() {
         }
     });
     egui_macroquad::draw();
+
+    // Initial window to choose path
+    while !path_selected {
+        macroquad::window::clear_background(color_scheme.background());
+        egui_macroquad::ui(|ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.heading("Select a path");
+                if ui.button("Default Path").clicked() {
+                    path_selected = true;
+                }
+                // choose a path from a given filename in json
+                // using serde_json to deserialize the path
+                if ui.button("Choose Path").clicked() {
+                    let filename = rfd::FileDialog::new()
+                        .add_filter("JSON", &["json"])
+                        .pick_file();
+                    if let Some(filename) = filename {
+                        let path = std::fs::read_to_string(filename).unwrap();
+                        main_path = serde_json::from_str(&path).unwrap();
+                        path_selected = true;
+                    }
+                }
+            });
+        });
+
+        egui_macroquad::draw();
+
+        next_frame().await;
+    }
+
+    let path_points = sample_points(&main_path, 0.1).collect_vec();
+    let p0 = main_path.first_point();
+
+    let initial_condition = Vector::<7>::from_column_slice(&[p0.x, p0.y, 0.1, 0.0, 0.0, 0.0, 0.0]);
+    let mut robot_sim = RobotSimulation::new(
+        initial_condition,
+        KP,
+        KI,
+        KD,
+        SPEED,
+        Arc::new(main_path.clone()),
+    );
 
     loop {
         macroquad::window::clear_background(color_scheme.background());
