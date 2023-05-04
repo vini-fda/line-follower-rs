@@ -2,10 +2,10 @@ use std::f64::consts::PI;
 
 use crate::{canvas::Canvas, utils::IntoPos2};
 
-use super::{super::utils::IntoPoint2, tool::Tool};
+use super::super::utils::IntoPoint2;
 use egui::{Color32, InputState, Key, Painter, Pos2, Response, Stroke, Ui};
 use linefollower_core::geometry::{arc_path::ArcPath, closed_path::SubPath};
-use nalgebra::{ComplexField, Point2, Vector2};
+use nalgebra::{Point2, Vector2};
 
 #[derive(PartialEq)]
 pub enum ArcPathToolState {

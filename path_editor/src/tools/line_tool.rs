@@ -3,7 +3,7 @@ use egui::*;
 use linefollower_core::geometry::{closed_path::SubPath, line_path::LinePath};
 use nalgebra::Point2;
 
-use super::{super::utils::IntoPoint2, tool::Tool};
+use super::super::utils::IntoPoint2;
 
 pub struct LineStart {}
 pub struct OnePoint {

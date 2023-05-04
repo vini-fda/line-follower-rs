@@ -1,7 +1,7 @@
-use egui::{Color32, InputState, Painter, Pos2, Response, Ui};
+use egui::{InputState, Painter, Pos2, Response, Ui};
 use linefollower_core::geometry::closed_path::SubPath;
 
-use crate::{canvas::Canvas, tools::select_tool::SelectToolState};
+use crate::canvas::Canvas;
 
 use super::{
     arc_tool::ArcPathTool, free_tool::FreeTool, line_tool::LinePathTool, select_tool::SelectTool,

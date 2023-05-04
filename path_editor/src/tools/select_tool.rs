@@ -1,4 +1,3 @@
-use super::tool::Tool;
 use crate::canvas::Canvas;
 use egui::{Color32, InputState, Painter, Pos2, Response, Ui};
 use linefollower_core::geometry::closed_path::SubPath;

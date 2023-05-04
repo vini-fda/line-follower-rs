@@ -1,15 +1,12 @@
 use std::f32::consts::PI;
 
 // based on https://github.com/emilk/egui/blob/master/crates/egui_demo_app/src/wrap_app.rs lines 43-52
-use egui::{containers::*, widgets::*, *};
-use linefollower_core::{
-    geometry::{closed_path::SubPath, track::Track},
-    utils::math::sigmoid,
-};
+use egui::*;
+use linefollower_core::geometry::{closed_path::SubPath, track::Track};
 use mint::{Point2, Vector2};
 use nalgebra as na;
 
-use crate::{tools::tool::Tool, utils::IntoPos2};
+use crate::utils::IntoPos2;
 
 pub struct Canvas {
     pub zoom: f32,
@@ -95,9 +92,8 @@ impl Canvas {
         painter: &Painter,
         subpaths: T,
     ) {
-        let displayable_subpaths: Vec<Vec<Pos2>> = subpaths
-            .map(|ref subpath| generate_displayable_points(subpath))
-            .collect();
+        let displayable_subpaths: Vec<Vec<Pos2>> =
+            subpaths.map(generate_displayable_points).collect();
         self.draw_displayable_subpaths(painter, &displayable_subpaths);
     }
 

@@ -1,11 +1,6 @@
 use crate::{
     canvas::Canvas,
-    tools::{
-        arc_tool::ArcPathTool,
-        line_tool::{LinePathTool, LineStart},
-        select_tool::SelectTool,
-        tool::Tool,
-    },
+    tools::{arc_tool::ArcPathTool, line_tool::LinePathTool, select_tool::SelectTool, tool::Tool},
 };
 use egui::*;
 use linefollower_core::{
