@@ -3,12 +3,13 @@ use crate::canvas::Canvas;
 use egui::{Color32, InputState, Painter, Pos2, Response, Ui};
 use linefollower_core::geometry::closed_path::SubPath;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SelectToolState {
     Start,
     OnceClicked,
 }
 
+#[derive(PartialEq)]
 pub struct SelectTool {
     state: SelectToolState,
     p0: Pos2,
@@ -21,16 +22,7 @@ impl SelectTool {
             p0: Pos2::ZERO,
         }
     }
-}
-
-impl Default for SelectTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Tool for SelectTool {
-    fn on_input(&mut self, response: &Response, input: &InputState) {
+    pub fn on_input(&mut self, response: &Response, input: &InputState) {
         match self.state {
             SelectToolState::Start => {
                 if response.hovered() && input.pointer.primary_clicked() {
@@ -45,10 +37,10 @@ impl Tool for SelectTool {
             }
         }
     }
-    fn on_click(&mut self, _p: egui::Pos2) -> Option<SubPath<f64>> {
+    pub fn on_click(&mut self, _p: egui::Pos2) -> Option<SubPath<f64>> {
         None
     }
-    fn draw(&self, ui: &Ui, _canvas: &Canvas, painter: &Painter) {
+    pub fn draw(&self, ui: &Ui, _canvas: &Canvas, painter: &Painter) {
         match self.state {
             SelectToolState::Start => {}
             SelectToolState::OnceClicked => {
@@ -64,5 +56,10 @@ impl Tool for SelectTool {
             }
         }
     }
-    fn reset_state(&mut self) {}
+}
+
+impl Default for SelectTool {
+    fn default() -> Self {
+        Self::new()
+    }
 }

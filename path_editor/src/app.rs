@@ -2,12 +2,10 @@ use crate::{
     canvas::Canvas,
     tools::{
         arc_tool::ArcPathTool,
-        free_tool::FreeTool,
         line_tool::{LinePathTool, LineStart},
         select_tool::SelectTool,
         tool::Tool,
     },
-    utils::{IntoPoint2, IntoPos2},
 };
 use egui::*;
 use linefollower_core::{
@@ -20,9 +18,8 @@ use petgraph::{prelude::DiGraph, stable_graph::NodeIndex};
 type CurveGraph = DiGraph<Point2<f32>, SubPath<f64>>;
 
 pub struct PathEditorApp {
-    tooltype: ToolType,
     canvas: Canvas,
-    tool: Box<dyn Tool>,
+    tool: Tool,
     curve_graph: CurveGraph,
 }
 
@@ -57,20 +54,10 @@ impl AddSubPath<f64> for CurveGraph {
     }
 }
 
-#[derive(Default, PartialEq)]
-enum ToolType {
-    #[default]
-    Free,
-    ArcPath,
-    LinePath,
-    SelectPath,
-}
-
 impl PathEditorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         Self {
-            tool: Box::new(super::tools::free_tool::FreeTool {}),
-            tooltype: ToolType::Free,
+            tool: Tool::new(),
             canvas: Canvas::default(),
             curve_graph: DiGraph::new(),
         }
@@ -220,43 +207,39 @@ impl eframe::App for PathEditorApp {
             // ui.selectable_value(&mut self.tooltype, ToolType::LinePath, "Line Path");
             if ui
                 .add(SelectableLabel::new(
-                    self.tooltype == ToolType::Free,
+                    matches!(self.tool, Tool::Free(_)),
                     "Free",
                 ))
                 .clicked()
             {
-                self.tooltype = ToolType::Free;
-                self.tool = Box::new(super::tools::free_tool::FreeTool {});
+                self.tool = Tool::new();
             }
             if ui
                 .add(SelectableLabel::new(
-                    self.tooltype == ToolType::ArcPath,
+                    matches!(self.tool, Tool::ArcPath(_)),
                     "Arc Path",
                 ))
                 .clicked()
             {
-                self.tooltype = ToolType::ArcPath;
-                self.tool = Box::<ArcPathTool>::default();
+                self.tool = Tool::ArcPath(ArcPathTool::default());
             }
             if ui
                 .add(SelectableLabel::new(
-                    self.tooltype == ToolType::LinePath,
+                    matches!(self.tool, Tool::LinePath(_)),
                     "Line Path",
                 ))
                 .clicked()
             {
-                self.tooltype = ToolType::LinePath;
-                self.tool = Box::<LinePathTool>::default();
+                self.tool = Tool::LinePath(LinePathTool::default());
             }
             if ui
                 .add(SelectableLabel::new(
-                    self.tooltype == ToolType::SelectPath,
+                    matches!(self.tool, Tool::Select(_)),
                     "Selection",
                 ))
                 .clicked()
             {
-                self.tooltype = ToolType::SelectPath;
-                self.tool = Box::<SelectTool>::default();
+                self.tool = Tool::Select(SelectTool::default());
             }
         });
         egui::Window::new("Subpaths").show(ctx, |ui| {
@@ -266,9 +249,7 @@ impl eframe::App for PathEditorApp {
         });
         // if the user presses ESC, the tool will switch to Free
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            self.tooltype = ToolType::Free;
-            self.tool = Box::new(FreeTool {});
-            //self.tool.reset_state();
+            self.tool = Tool::new();
         }
         // Taken from the egui demo (crates/egui_demo_app/src/backend_panel.rs)
         // "To ensure the UI is up to date you need to call `egui::Context::request_repaint()` each

@@ -7,12 +7,14 @@ use egui::{Color32, InputState, Key, Painter, Pos2, Response, Stroke, Ui};
 use linefollower_core::geometry::{arc_path::ArcPath, closed_path::SubPath};
 use nalgebra::{ComplexField, Point2, Vector2};
 
+#[derive(PartialEq)]
 pub enum ArcPathToolState {
     Start,
     CenterPoint,
     FirstArcPoint,
 }
 
+#[derive(PartialEq)]
 pub struct ArcPathTool {
     state: ArcPathToolState,
     counterclockwise: bool,
@@ -33,41 +35,12 @@ impl ArcPathTool {
             r: 0.0,
         }
     }
-    fn arc_point(&self) -> Point2<f64> {
-        self.center + self.r * Vector2::new(self.theta0.cos(), self.theta0.sin())
-    }
-    fn vector_angle(&self, v: Vector2<f64>) -> f64 {
-        let t = v.y.atan2(v.x);
-        if t < 0.0 {
-            2.0 * PI + t
-        } else {
-            t
-        }
-    }
-    fn correct_angle(&self, theta1: &mut f64) {
-        if self.counterclockwise {
-            if *theta1 < self.theta0 {
-                *theta1 += 2.0 * PI;
-            }
-        } else if *theta1 > self.theta0 {
-            *theta1 -= 2.0 * PI;
-        }
-    }
-}
-
-impl Default for ArcPathTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Tool for ArcPathTool {
-    fn on_input(&mut self, _response: &Response, input: &InputState) {
+    pub fn on_input(&mut self, _response: &Response, input: &InputState) {
         if input.key_pressed(Key::G) {
             self.counterclockwise = !self.counterclockwise;
         }
     }
-    fn on_click(&mut self, p: Pos2) -> Option<SubPath<f64>> {
+    pub fn on_click(&mut self, p: Pos2) -> Option<SubPath<f64>> {
         match self.state {
             ArcPathToolState::Start => {
                 self.state = ArcPathToolState::CenterPoint;
@@ -97,10 +70,7 @@ impl Tool for ArcPathTool {
             }
         }
     }
-    fn reset_state(&mut self) {
-        self.state = ArcPathToolState::Start;
-    }
-    fn draw(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {
+    pub fn draw(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {
         match self.state {
             ArcPathToolState::Start => {}
             ArcPathToolState::CenterPoint => {
@@ -137,5 +107,31 @@ impl Tool for ArcPathTool {
                 }
             }
         }
+    }
+    fn arc_point(&self) -> Point2<f64> {
+        self.center + self.r * Vector2::new(self.theta0.cos(), self.theta0.sin())
+    }
+    fn vector_angle(&self, v: Vector2<f64>) -> f64 {
+        let t = v.y.atan2(v.x);
+        if t < 0.0 {
+            2.0 * PI + t
+        } else {
+            t
+        }
+    }
+    fn correct_angle(&self, theta1: &mut f64) {
+        if self.counterclockwise {
+            if *theta1 < self.theta0 {
+                *theta1 += 2.0 * PI;
+            }
+        } else if *theta1 > self.theta0 {
+            *theta1 -= 2.0 * PI;
+        }
+    }
+}
+
+impl Default for ArcPathTool {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -10,12 +10,13 @@ pub struct OnePoint {
     pub p: Pos2,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LinePathToolState {
     Start,
     OnePoint,
 }
 
+#[derive(PartialEq)]
 pub struct LinePathTool {
     state: LinePathToolState,
     p0: Point2<f64>,
@@ -28,17 +29,8 @@ impl LinePathTool {
             p0: Point2::new(0.0, 0.0),
         }
     }
-}
-
-impl Default for LinePathTool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Tool for LinePathTool {
-    fn on_input(&mut self, _response: &Response, _input: &InputState) {}
-    fn on_click(&mut self, p: Pos2) -> Option<SubPath<f64>> {
+    pub fn on_input(&mut self, _response: &Response, _input: &InputState) {}
+    pub fn on_click(&mut self, p: Pos2) -> Option<SubPath<f64>> {
         match self.state {
             LinePathToolState::Start => {
                 self.state = LinePathToolState::OnePoint;
@@ -52,10 +44,7 @@ impl Tool for LinePathTool {
             }
         }
     }
-    fn reset_state(&mut self) {
-        self.state = LinePathToolState::Start;
-    }
-    fn draw(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {
+    pub fn draw(&self, ui: &Ui, canvas: &Canvas, painter: &Painter) {
         if let LinePathToolState::OnePoint = self.state {
             if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
                 let red = Color32::from_rgb(255, 0, 0);
@@ -63,5 +52,11 @@ impl Tool for LinePathTool {
                 canvas.draw_line_from_screen_coords(painter, p0, mouse_pos, red);
             }
         }
+    }
+}
+
+impl Default for LinePathTool {
+    fn default() -> Self {
+        Self::new()
     }
 }
