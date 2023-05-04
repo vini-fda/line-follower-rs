@@ -36,7 +36,7 @@ impl SelectTool {
         ui.label("Selected Track");
         ui.separator();
         match self.closed_path_json {
-            Some(ref closed_path_json) => {
+            Some(ref mut closed_path_json) => {
                 ui.text_edit_singleline(&mut self.save_file_name);
                 if ui.button("Save track").clicked() {
                     // save the json into a file
@@ -45,7 +45,28 @@ impl SelectTool {
                     let mut file = std::fs::File::create(&self.save_file_name).unwrap();
                     file.write_all(closed_path_json.as_bytes()).unwrap();
                 }
-                ui.label(closed_path_json);
+                let mut theme = crate::syntax_highlighting::CodeTheme::from_memory(ui.ctx());
+                ui.collapsing("JSON", |ui| {
+                    ui.collapsing("Theme", |ui| {
+                        ui.group(|ui| {
+                            theme.ui(ui);
+                            theme.clone().store_in_memory(ui.ctx());
+                        });
+                    });
+                    let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
+                        let mut layout_job =
+                            crate::syntax_highlighting::highlight(ui.ctx(), &theme, string, "json");
+                        layout_job.wrap.max_width = wrap_width;
+                        ui.fonts(|f| f.layout_job(layout_job))
+                    };
+                    ui.label("Pretty printed JSON:");
+                    ui.add(
+                        egui::TextEdit::multiline(closed_path_json)
+                            .font(egui::TextStyle::Monospace)
+                            .code_editor()
+                            .layouter(&mut layouter),
+                    )
+                });
             }
             None => {
                 ui.label("No valid selection");
