@@ -22,30 +22,34 @@ trait AddSubPath<F>
 where
     F: Float,
 {
-    fn add_subpath(&mut self, subpath: SubPath<F>, snap_point: Option<(bool, NodeIndex)>);
+    fn add_subpath(&mut self, subpath: SubPath<F>);
 }
 
 impl AddSubPath<f64> for CurveGraph {
-    fn add_subpath(&mut self, subpath: SubPath<f64>, snap_point: Option<(bool, NodeIndex)>) {
-        if let Some((first, id)) = snap_point {
-            if first {
-                let p1 = subpath.last_point();
-                let i0 = id;
-                let i1 = self.add_node(p1.cast::<f32>().into());
-                self.add_edge(i0, i1, subpath);
-            } else {
-                let p0 = subpath.first_point();
-                let i0 = self.add_node(p0.cast::<f32>().into());
-                let i1 = id;
-                self.add_edge(i0, i1, subpath);
+    fn add_subpath(&mut self, subpath: SubPath<f64>) {
+        let p0: Point2<f32> = subpath.first_point().cast::<f32>().into();
+        let p1: Point2<f32> = subpath.last_point().cast::<f32>().into();
+        const MIN_DISTANCE_SQR: f32 = 1e-10;
+        let mut i0 = None;
+        let mut i1 = None;
+        // before adding the nodes, check if they are close enough to existing nodes
+        for node in self.node_indices() {
+            let p = self[node];
+            fn distance_sqr(p0: Point2<f32>, p1: Point2<f32>) -> f32 {
+                (p0.x - p1.x).powi(2) + (p0.y - p1.y).powi(2)
             }
-        } else {
-            let p0 = subpath.first_point();
-            let p1 = subpath.last_point();
-            let i0 = self.add_node(p0.cast::<f32>().into());
-            let i1 = self.add_node(p1.cast::<f32>().into());
-            self.add_edge(i0, i1, subpath);
+            if distance_sqr(p, p0) <= MIN_DISTANCE_SQR {
+                i0 = Some(node);
+            }
+            if distance_sqr(p, p1) <= MIN_DISTANCE_SQR {
+                i1 = Some(node);
+            }
         }
+        // add nodes if they don't exist
+        let i0 = i0.unwrap_or_else(|| self.add_node(p0));
+        let i1 = i1.unwrap_or_else(|| self.add_node(p1));
+        // add the edge
+        self.add_edge(i0, i1, subpath);
     }
 }
 
@@ -119,45 +123,20 @@ impl eframe::App for PathEditorApp {
                     if ui.input(|i| i.pointer.primary_clicked()) {
                         let pos = ui.input(|i| i.pointer.interact_pos());
                         if let Some(mut pos) = pos {
-                            println!("pos (screen) = [{:.4}, {:.4}]", pos.x, pos.y);
                             // snapping
-                            // for node in
-                            //     self.curve_graph.raw_nodes().iter()
-                            // {
-                            //     let snap_point = self.canvas.to_screen(&painter, node.weight.into());
-                            //     let distance = snap_point.distance(pos);
-                            //     if distance <= SNAP_RADIUS {
-                            //         pos = snap_point;
-                            //         break;
-                            //     }
-                            // }
-                            // TODO: i've ATTEMPTED to reduce redundancy when creating points
-                            // by not including points that are already in the graph
-                            // but it doesnt work, because when you press the mouse for the first point the
-                            // {Arc|Line}PathTool will obviously not create a point
-                            // but when it is finished it will (even with snapping in the first point)
-                            // POSSIBLE SOLUTION: change the API for the tools,
-                            // such that they create a stack of points that *may* be added to the graph.
-                            let mut snap_info = None;
-                            for edge_id in self.curve_graph.edge_indices() {
-                                let (id0, id1) = self.curve_graph.edge_endpoints(edge_id).unwrap();
-                                for &id in [id0, id1].iter() {
-                                    let node = *self.curve_graph.node_weight(id).unwrap();
-                                    let snap_point = self.canvas.to_screen(&painter, node.into());
-                                    let distance = snap_point.distance(pos);
-                                    if distance <= SNAP_RADIUS {
-                                        pos = snap_point;
-                                        snap_info = Some((id == id0, id));
-                                        break;
-                                    }
+                            for node in self.curve_graph.raw_nodes().iter() {
+                                let snap_point =
+                                    self.canvas.to_screen(&painter, node.weight.into());
+                                let distance = snap_point.distance(pos);
+                                if distance <= SNAP_RADIUS {
+                                    pos = snap_point;
+                                    break;
                                 }
                             }
-                            println!("pos (snap) = [{:.4}, {:.4}]", pos.x, pos.y);
                             let pos = self.canvas.to_world(&painter, pos);
-                            println!("pos (world) = [{:.4}, {:.4}]", pos.x, pos.y);
                             let subpath = self.tool.on_click(pos);
                             if let Some(subpath) = subpath {
-                                self.curve_graph.add_subpath(subpath, snap_info);
+                                self.curve_graph.add_subpath(subpath);
                                 response.mark_changed();
                             }
                         }
