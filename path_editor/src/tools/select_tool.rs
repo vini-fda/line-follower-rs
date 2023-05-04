@@ -41,7 +41,7 @@ impl SelectTool {
                 if ui.button("Save track").clicked() {
                     // save the json into a file
                     // let the user choose the file name
-                    
+
                     let mut file = std::fs::File::create(&self.save_file_name).unwrap();
                     file.write_all(closed_path_json.as_bytes()).unwrap();
                 }
@@ -110,7 +110,7 @@ impl SelectTool {
             SelectToolState::Start => None,
             SelectToolState::OnceClicked => {
                 if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                    let p0 = self.p0.into();
+                    let p0 = canvas.to_world(painter, self.p0).into();
                     let p1 = canvas.to_world(painter, mouse_pos).into();
                     Some(SelectionRectangle::new(p0, p1))
                 } else {
@@ -172,13 +172,13 @@ pub struct SelectionRectangle {
 
 impl SelectionRectangle {
     pub fn new(p0: Point2<f32>, p1: Point2<f32>) -> Self {
-        let x0 = p0.x.min(p1.x);
-        let x1 = p0.x.max(p1.x);
-        let y0 = p0.y.min(p1.y);
-        let y1 = p0.y.max(p1.y);
+        let xmin = p0.x.min(p1.x);
+        let xmax = p0.x.max(p1.x);
+        let ymin = p0.y.min(p1.y);
+        let ymax = p0.y.max(p1.y);
         Self {
-            min: Point2::from_slice(&[x0, y0]),
-            max: Point2::from_slice(&[x1, y1]),
+            min: Point2::from_slice(&[xmin, ymin]),
+            max: Point2::from_slice(&[xmax, ymax]),
         }
     }
     pub fn contains(&self, p: Point2<f32>) -> bool {
