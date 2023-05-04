@@ -1,56 +1,19 @@
 use crate::{
     canvas::Canvas,
+    curve_graph::{AddSubPath, CurveGraph},
     tools::{arc_tool::ArcPathTool, line_tool::LinePathTool, select_tool::SelectTool, tool::Tool},
 };
 use egui::*;
 use linefollower_core::{
-    geometry::{closed_path::SubPath, line_path::LinePath, track::Track},
+    geometry::track::Track,
     utils::{math::sigmoid, traits::Float},
 };
-use mint::Point2;
-use petgraph::{prelude::DiGraph, stable_graph::NodeIndex};
-
-type CurveGraph = DiGraph<Point2<f32>, SubPath<f64>>;
+use petgraph::prelude::DiGraph;
 
 pub struct PathEditorApp {
     canvas: Canvas,
     tool: Tool,
     curve_graph: CurveGraph,
-}
-
-trait AddSubPath<F>
-where
-    F: Float,
-{
-    fn add_subpath(&mut self, subpath: SubPath<F>);
-}
-
-impl AddSubPath<f64> for CurveGraph {
-    fn add_subpath(&mut self, subpath: SubPath<f64>) {
-        let p0: Point2<f32> = subpath.first_point().cast::<f32>().into();
-        let p1: Point2<f32> = subpath.last_point().cast::<f32>().into();
-        const MIN_DISTANCE_SQR: f32 = 1e-10;
-        let mut i0 = None;
-        let mut i1 = None;
-        // before adding the nodes, check if they are close enough to existing nodes
-        for node in self.node_indices() {
-            let p = self[node];
-            fn distance_sqr(p0: Point2<f32>, p1: Point2<f32>) -> f32 {
-                (p0.x - p1.x).powi(2) + (p0.y - p1.y).powi(2)
-            }
-            if distance_sqr(p, p0) <= MIN_DISTANCE_SQR {
-                i0 = Some(node);
-            }
-            if distance_sqr(p, p1) <= MIN_DISTANCE_SQR {
-                i1 = Some(node);
-            }
-        }
-        // add nodes if they don't exist
-        let i0 = i0.unwrap_or_else(|| self.add_node(p0));
-        let i1 = i1.unwrap_or_else(|| self.add_node(p1));
-        // add the edge
-        self.add_edge(i0, i1, subpath);
-    }
 }
 
 impl PathEditorApp {
@@ -152,7 +115,10 @@ impl eframe::App for PathEditorApp {
                         );
                     }
                 }
-                ui.input(|i| self.tool.on_input(&response, i));
+                ui.input(|i| {
+                    self.tool
+                        .on_input(&response, i, ui, &self.canvas, &painter, &self.curve_graph)
+                });
                 self.canvas.draw_subpaths(
                     &painter,
                     self.curve_graph.raw_edges().iter().map(|edge| &edge.weight),
@@ -219,6 +185,11 @@ impl eframe::App for PathEditorApp {
         egui::Window::new("Subpaths").show(ctx, |ui| {
             for subpath in self.curve_graph.raw_edges().iter().map(|edge| &edge.weight) {
                 ui.label(format!("{:?}", subpath));
+            }
+        });
+        egui::Window::new("Current Selection").show(ctx, |ui| {
+            if let Tool::Select(ref select) = self.tool {
+                select.ui(ui);
             }
         });
         // if the user presses ESC, the tool will switch to Free

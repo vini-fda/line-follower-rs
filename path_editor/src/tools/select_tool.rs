@@ -1,6 +1,11 @@
-use crate::canvas::Canvas;
+use crate::{
+    canvas::Canvas,
+    curve_graph::{CurveGraph, ValidTrack},
+};
 use egui::{Color32, InputState, Painter, Pos2, Response, Ui};
-use linefollower_core::geometry::closed_path::SubPath;
+use linefollower_core::geometry::closed_path::{ClosedPath, SubPath};
+use mint::Point2;
+use petgraph::{stable_graph::NodeIndex, visit::NodeRef};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SelectToolState {
@@ -8,10 +13,11 @@ pub enum SelectToolState {
     OnceClicked,
 }
 
-#[derive(PartialEq)]
 pub struct SelectTool {
     state: SelectToolState,
     p0: Pos2,
+    closed_path: Option<ClosedPath<f64>>,
+    closed_path_json: Option<String>,
 }
 
 impl SelectTool {
@@ -19,9 +25,31 @@ impl SelectTool {
         Self {
             state: SelectToolState::Start,
             p0: Pos2::ZERO,
+            closed_path: None,
+            closed_path_json: None,
         }
     }
-    pub fn on_input(&mut self, response: &Response, input: &InputState) {
+    pub fn ui(&self, ui: &mut Ui) {
+        ui.label("Selected Track");
+        ui.separator();
+        match self.closed_path_json {
+            Some(ref closed_path_json) => {
+                ui.label(closed_path_json);
+            }
+            None => {
+                ui.label("No valid selection");
+            }
+        }
+    }
+    pub fn on_input(
+        &mut self,
+        response: &Response,
+        input: &InputState,
+        ui: &Ui,
+        canvas: &Canvas,
+        painter: &Painter,
+        graph: &CurveGraph,
+    ) {
         match self.state {
             SelectToolState::Start => {
                 if response.hovered() && input.pointer.primary_clicked() {
@@ -31,6 +59,11 @@ impl SelectTool {
             }
             SelectToolState::OnceClicked => {
                 if response.hovered() && input.pointer.primary_clicked() {
+                    self.closed_path = self.selected_track(ui, canvas, painter, graph);
+                    if let Some(ref closed_path) = self.closed_path {
+                        let json = serde_json::to_string_pretty(closed_path).unwrap();
+                        self.closed_path_json = Some(json);
+                    }
                     self.state = SelectToolState::Start;
                 }
             }
@@ -55,10 +88,89 @@ impl SelectTool {
             }
         }
     }
+    /// Returns the selection rectangle if the tool is in the OnceClicked state.
+    fn selection_rectangle(
+        &self,
+        ui: &Ui,
+        canvas: &Canvas,
+        painter: &Painter,
+    ) -> Option<SelectionRectangle> {
+        match self.state {
+            SelectToolState::Start => None,
+            SelectToolState::OnceClicked => {
+                if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                    let p0 = self.p0.into();
+                    let p1 = canvas.to_world(painter, mouse_pos).into();
+                    Some(SelectionRectangle::new(p0, p1))
+                } else {
+                    None
+                }
+            }
+        }
+    }
+    pub fn selected_points(
+        &self,
+        ui: &Ui,
+        canvas: &Canvas,
+        painter: &Painter,
+        graph: &CurveGraph,
+    ) -> Option<Vec<NodeIndex>> {
+        match self.state {
+            SelectToolState::Start => None,
+            SelectToolState::OnceClicked => {
+                let selection_rectangle = self.selection_rectangle(ui, canvas, painter)?;
+                let mut selected_points = Vec::new();
+                for i in graph.node_indices() {
+                    let point = graph[i];
+                    if selection_rectangle.contains(point) {
+                        selected_points.push(i);
+                    }
+                }
+
+                Some(selected_points)
+            }
+        }
+    }
+    pub fn selected_track(
+        &self,
+        ui: &Ui,
+        canvas: &Canvas,
+        painter: &Painter,
+        graph: &CurveGraph,
+    ) -> Option<ClosedPath<f64>> {
+        match self.state {
+            SelectToolState::Start => None,
+            SelectToolState::OnceClicked => {
+                let selected_points = self.selected_points(ui, canvas, painter, graph)?;
+                graph.valid_track(&selected_points)
+            }
+        }
+    }
 }
 
 impl Default for SelectTool {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct SelectionRectangle {
+    min: Point2<f32>,
+    max: Point2<f32>,
+}
+
+impl SelectionRectangle {
+    pub fn new(p0: Point2<f32>, p1: Point2<f32>) -> Self {
+        let x0 = p0.x.min(p1.x);
+        let x1 = p0.x.max(p1.x);
+        let y0 = p0.y.min(p1.y);
+        let y1 = p0.y.max(p1.y);
+        Self {
+            min: Point2::from_slice(&[x0, y0]),
+            max: Point2::from_slice(&[x1, y1]),
+        }
+    }
+    pub fn contains(&self, p: Point2<f32>) -> bool {
+        self.min.x <= p.x && p.x <= self.max.x && self.min.y <= p.y && p.y <= self.max.y
     }
 }
