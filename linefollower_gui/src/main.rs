@@ -1,18 +1,19 @@
 use egui::plot::{Legend, Line, PlotPoints, Points};
 use egui::{RichText, TextStyle};
 use itertools::Itertools;
-use line_follower_rs::geometry::closed_path::predefined_closed_path;
-use line_follower_rs::geometry::track::sample_points;
-use line_follower_rs::graphics::draw::{draw_closed_curve, ROBOT_SIDE_LENGTH, SENSOR_ARRAY_LENGTH};
-//use line_follower_rs::math_utils::{lattice_points, sigmoid};
-use line_follower_rs::ode_solver::ode_system::Vector;
-use line_follower_rs::simulation::robot::RobotSimulation;
-use line_follower_rs::utils::math::sigmoid;
-use macroquad::miniquad::conf::Icon;
+use linefollower_core::geometry::closed_path::predefined_closed_path;
+use linefollower_core::geometry::track::{sample_points, Track};
+use linefollower_core::ode_solver::ode_system::Vector;
+use linefollower_core::simulation::robot::RobotSimulation;
+use linefollower_core::utils::math::sigmoid;
+use linefollower_gui::graphics::draw::{draw_closed_curve, ROBOT_SIDE_LENGTH, SENSOR_ARRAY_LENGTH};
 use macroquad::color::Color;
-use macroquad::prelude::{Vec2, KeyCode, is_key_down, vec2, Camera2D, mouse_wheel, GREEN, YELLOW, RED, SKYBLUE, PURPLE};
+use macroquad::miniquad::conf::Icon;
+use macroquad::prelude::{
+    is_key_down, mouse_wheel, vec2, Camera2D, KeyCode, Vec2, GREEN, PURPLE, RED, SKYBLUE, YELLOW,
+};
 use macroquad::shapes::draw_circle;
-use macroquad::window::{Conf, screen_width, screen_height, next_frame};
+use macroquad::window::{next_frame, screen_height, screen_width, Conf};
 use std::f32::consts::PI;
 use std::sync::Arc;
 
@@ -20,10 +21,10 @@ const MAX_ZOOM: f32 = 15.0;
 const MIN_ZOOM: f32 = 0.01;
 
 // PID Constants
-const KP: f64 = 3.130480505558367;//2.565933287511912; //3.49;
-const KI: f64 = 73.01770822094774;//52.33814267275805; //37.46;
-const KD: f64 = 11.273635752474997;//10.549477731373042; //13.79;
-const SPEED: f64 = 1.6710281486754923;//1.4602563968294984; //1.04;
+const KP: f64 = 3.130480505558367; //2.565933287511912; //3.49;
+const KI: f64 = 73.01770822094774; //52.33814267275805; //37.46;
+const KD: f64 = 11.273635752474997; //10.549477731373042; //13.79;
+const SPEED: f64 = 1.6710281486754923; //1.4602563968294984; //1.04;
 
 // Kp: , Ki: , Kd:
 
@@ -54,7 +55,7 @@ impl ColorScheme {
 }
 
 fn window_conf() -> Conf {
-    let file_bytes = include_bytes!("../../assets/logo.ico");
+    let file_bytes = include_bytes!("../assets/logo.ico");
     let icon_dir = ico::IconDir::read(std::io::Cursor::new(file_bytes.as_slice())).unwrap();
     const EXPECTED_NUM_ICONS: usize = 3;
     assert_eq!(EXPECTED_NUM_ICONS, icon_dir.entries().len());
@@ -116,18 +117,11 @@ async fn main() {
 
     let mut wr_history = [0.0f32; 600];
     let mut wr_i = 0;
-    let main_path = predefined_closed_path();
-    let path_points = sample_points(&main_path, 0.1).collect_vec();
 
-    let initial_condition = Vector::<7>::from_column_slice(&[0.0, -4.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
-    let mut robot_sim = RobotSimulation::new(
-        initial_condition,
-        KP,
-        KI,
-        KD,
-        SPEED,
-        Arc::new(main_path.clone()),
-    );
+    // whether the user has selected a path
+    let mut path_selected = false;
+    // default path
+    let mut main_path = predefined_closed_path();
 
     // initial config of egui context
     egui_macroquad::ui(|egui_ctx| {
@@ -136,6 +130,48 @@ async fn main() {
         }
     });
     egui_macroquad::draw();
+
+    // Initial window to choose path
+    while !path_selected {
+        macroquad::window::clear_background(color_scheme.background());
+        egui_macroquad::ui(|ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.heading("Select a path");
+                if ui.button("Default Path").clicked() {
+                    path_selected = true;
+                }
+                // choose a path from a given filename in json
+                // using serde_json to deserialize the path
+                if ui.button("Choose Path").clicked() {
+                    let filename = rfd::FileDialog::new()
+                        .add_filter("JSON", &["json"])
+                        .pick_file();
+                    if let Some(filename) = filename {
+                        let path = std::fs::read_to_string(filename).unwrap();
+                        main_path = serde_json::from_str(&path).unwrap();
+                        path_selected = true;
+                    }
+                }
+            });
+        });
+
+        egui_macroquad::draw();
+
+        next_frame().await;
+    }
+
+    let path_points = sample_points(&main_path, 0.1).collect_vec();
+    let p0 = main_path.first_point();
+
+    let initial_condition = Vector::<7>::from_column_slice(&[p0.x, p0.y, 0.1, 0.0, 0.0, 0.0, 0.0]);
+    let mut robot_sim = RobotSimulation::new(
+        initial_condition,
+        KP,
+        KI,
+        KD,
+        SPEED,
+        Arc::new(main_path.clone()),
+    );
 
     loop {
         macroquad::window::clear_background(color_scheme.background());
@@ -181,7 +217,7 @@ async fn main() {
         if !paused {
             const STEPS: usize = 4;
             const STEP_SIZE: f64 = DT / STEPS as f64;
-            for _ in 0..speed_multiplier{
+            for _ in 0..speed_multiplier {
                 for _ in 0..STEPS {
                     robot_sim.step(STEP_SIZE);
                 }
@@ -222,10 +258,8 @@ async fn main() {
                     ui.checkbox(&mut paused, "Pause simulation");
                     // simulation speed label
                     let sim_speed_label = ui.label("Simulation speed: ");
-                    ui.add(
-                        egui::Slider::new(&mut speed_multiplier, 1..=3)
-                            .clamp_to_range(true),
-                    ).labelled_by(sim_speed_label.id);
+                    ui.add(egui::Slider::new(&mut speed_multiplier, 1..=3).clamp_to_range(true))
+                        .labelled_by(sim_speed_label.id);
                     // edit egui's pixels per point
                     let ppp_label = ui.label("Pixels per point: ");
                     let response = ui
@@ -412,12 +446,12 @@ async fn main() {
         });
 
         if should_draw_grid {
-            line_follower_rs::graphics::draw::draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
+            linefollower_gui::graphics::draw::draw_grid(Vec2::ZERO, &camera, 0.1, 0.1);
         }
 
         draw_closed_curve(&path_points, color_scheme.path(), 0.03);
 
-        line_follower_rs::graphics::draw::draw_robot(
+        linefollower_gui::graphics::draw::draw_robot(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             robot_sim.get_state()[2] as f32 * 180.0 / PI,
@@ -427,7 +461,7 @@ async fn main() {
         draw_circle(pr.x as f32, pr.y as f32, 0.05, PURPLE);
         let tr = robot_sim.reference_tangent();
         // draw tangent vector to reference point
-        line_follower_rs::graphics::draw::draw_vector(
+        linefollower_gui::graphics::draw::draw_vector(
             pr.x as f32,
             pr.y as f32,
             tr.x as f32 * 0.1,
@@ -436,7 +470,7 @@ async fn main() {
         );
         // draw robot projection tangent vector
         let projection_tangent = robot_sim.robot_projection_tangent();
-        line_follower_rs::graphics::draw::draw_vector(
+        linefollower_gui::graphics::draw::draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             projection_tangent[0] as f32 * 0.1,
@@ -446,7 +480,7 @@ async fn main() {
 
         // draw robot direction vector
         let theta = robot_sim.get_state()[2] as f32;
-        line_follower_rs::graphics::draw::draw_vector(
+        linefollower_gui::graphics::draw::draw_vector(
             robot_sim.get_state()[0] as f32,
             robot_sim.get_state()[1] as f32,
             theta.cos() * 0.1,

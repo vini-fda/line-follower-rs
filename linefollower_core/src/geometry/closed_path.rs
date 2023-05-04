@@ -4,11 +4,12 @@ use crate::new_arc_path;
 use crate::new_line_path;
 use crate::utils::traits::Float;
 use nalgebra::{Point2, Vector2};
+use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
 use super::track::Track;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SubPath<F: Float> {
     Arc(ArcPath<F>),
     Line(LinePath<F>),
@@ -52,9 +53,31 @@ where
             SubPath::Line(line) => line.point_projection_distance(p),
         }
     }
+    // SAME implementation as the default
+    // just did this to fix the error:
+    // error[E0599]: no method named `sample_tangents_num` found for enum `SubPath` in the current scope
+    // BUG REPORT??
+    fn sample_points_num(&self, n: usize) -> Box<dyn Iterator<Item = Point2<F>> + '_> {
+        let nf = F::from_usize(n).unwrap();
+        let delta = self.length() / nf;
+        Box::new(
+            (0..=n)
+                .map(move |i| F::from_usize(i).unwrap() * delta)
+                .map(|d| self.point_at(d)),
+        )
+    }
+    fn sample_tangents_num(&self, n: usize) -> Box<dyn Iterator<Item = Vector2<F>> + '_> {
+        let nf = F::from_usize(n).unwrap();
+        let delta = self.length() / nf;
+        Box::new(
+            (0..=n)
+                .map(move |i| F::from_usize(i).unwrap() * delta)
+                .map(|d| self.tangent_at(d)),
+        )
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ClosedPath<F: Float> {
     p0: Point2<F>,
     subpaths: Vec<SubPath<F>>,
@@ -67,6 +90,7 @@ where
     F: Float,
 {
     pub fn new(subpaths: Vec<SubPath<F>>) -> Self {
+        debug_assert!(is_valid_closed_path(&subpaths), "invalid closed path");
         let starts = subpaths
             .iter()
             .scan(F::zero(), |state, subpath| {
@@ -168,4 +192,48 @@ pub fn predefined_closed_path() -> ClosedPath<f64> {
         SubPath::Line(new_line_path![8.0, 0.0, 0.0, 0.0]),
         SubPath::Arc(new_arc_path![0.0, -2.0, 2.0, PI / 2.0, 3.0 * PI / 2.0]),
     ])
+}
+
+pub fn is_valid_closed_path<F>(subpaths: &[SubPath<F>]) -> bool
+where
+    F: Float,
+{
+    // checks if the subpaths form a valid closed path
+    // a valid closed path is a path that starts and ends at the same point
+    // and the subpaths are connected to each other
+    if subpaths.len() < 2 {
+        return false;
+    }
+    let mut it = subpaths.iter();
+    let mut prev = it.next().unwrap().last_point();
+    // TODO: remove magic number
+    let epsilon = F::epsilon() * F::from(100.0).unwrap();
+    for subpath in it {
+        let p1 = subpath.first_point();
+        let p2 = prev;
+        // we can't check if p1 == p2 because of floating point precision
+        // so we check if distance <= epsilon
+        if (p1 - p2).norm() > epsilon {
+            return false;
+        }
+        prev = subpath.last_point();
+    }
+    // check if the last point is the same as the first point
+    let p1 = subpaths.first().unwrap().first_point();
+    let p2 = prev;
+    if (p1 - p2).norm() > epsilon {
+        return false;
+    }
+    true
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn test_predefined_path_validity() {
+        let path = predefined_closed_path();
+        assert!(is_valid_closed_path(&path.subpaths));
+    }
 }

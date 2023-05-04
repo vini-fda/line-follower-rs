@@ -1,0 +1,10 @@
+[package]
+name = "linefollower_core"
+version = "0.1.0"
+edition = { workspace = true }
+
+[dependencies]
+num = { workspace = true }
+itertools = { workspace = true }
+nalgebra = { workspace = true, features = ["serde", "serde-serialize"] }
+serde = { version = "1.0.160", features = ["derive"] }

@@ -1,0 +1,19 @@
+[package]
+name = "linefollower_gui"
+version = "0.1.0"
+edition = { workspace = true }
+
+[dependencies]
+egui = "0.21.0"
+egui-macroquad = { git = "https://github.com/vini-fda/egui-macroquad" }
+macroquad = "0.3.25"
+egui_demo_lib = "0.21.0"
+chrono = "0.4.24"
+ico = "0.3.0"
+num = { workspace = true }
+itertools = { workspace = true }
+nalgebra = { workspace = true, features = ["serde", "serde-serialize"] }
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.64"
+rfd = "0.11.3"
+linefollower_core = { workspace = true }
