@@ -52,6 +52,45 @@ impl ColorScheme {
             Color::new(0.1, 0.1, 0.1, 1.0)
         }
     }
+
+    fn set_theme(&self, egui_ctx: &egui::Context) {
+        if self.darkmode {
+            catppuccin_egui::set_theme(egui_ctx, catppuccin_egui::MOCHA);
+        } else {
+            catppuccin_egui::set_theme(egui_ctx, catppuccin_egui::LATTE);
+        }
+    }
+
+    fn light_dark_small_toggle_button(&mut self, ui: &mut egui::Ui) -> Option<bool> {
+        #![allow(clippy::collapsible_else_if)]
+        if self.darkmode {
+            if ui
+                .add(egui::Button::new("☀").frame(false))
+                .on_hover_text("Switch to light mode")
+                .clicked()
+            {
+                return Some(false);
+            }
+        } else {
+            if ui
+                .add(egui::Button::new("🌙").frame(false))
+                .on_hover_text("Switch to dark mode")
+                .clicked()
+            {
+                return Some(true);
+            }
+        }
+        None
+    }
+
+    fn global_dark_light_mode_switch(&mut self, ui: &mut egui::Ui) {
+        let egui_ctx: egui::Context = (*ui.ctx()).clone();
+        let darkmode = self.light_dark_small_toggle_button(ui);
+        if let Some(darkmode) = darkmode {
+            self.darkmode = darkmode;
+            self.set_theme(&egui_ctx)
+        }
+    }
 }
 
 fn window_conf() -> Conf {
@@ -125,6 +164,7 @@ async fn main() {
 
     // initial config of egui context
     egui_macroquad::ui(|egui_ctx| {
+        color_scheme.set_theme(egui_ctx);
         if let Some(pixels_per_point) = pixels_per_point {
             egui_ctx.set_pixels_per_point(pixels_per_point);
         }
@@ -252,7 +292,7 @@ async fn main() {
                 .show(egui_ctx, |ui| {
                     ui.label(RichText::new("⛭ Options").heading());
                     ui.separator();
-                    ui.checkbox(&mut color_scheme.darkmode, "Dark mode");
+                    color_scheme.global_dark_light_mode_switch(ui);
                     ui.checkbox(&mut should_draw_grid, "Draw grid");
                     ui.checkbox(&mut follow_robot, "Follow robot with camera");
                     ui.checkbox(&mut paused, "Pause simulation");
@@ -329,9 +369,9 @@ async fn main() {
                         ui.label(format!("Robot side length: {:.3}", ROBOT_SIDE_LENGTH));
                         ui.label(format!("Sensor array length: {:.3}", SENSOR_ARRAY_LENGTH));
                         // KP, KI, KD
-                        ui.label(format!("KP = {:.3}", KP));
-                        ui.label(format!("KI = {:.3}", KI));
-                        ui.label(format!("KD = {:.3}", KD));
+                        ui.label(format!("Kp = {:.3}", KP));
+                        ui.label(format!("Ki = {:.3}", KI));
+                        ui.label(format!("Kd = {:.3}", KD));
                     });
                 });
 
