@@ -13,12 +13,6 @@ const NUM_CONTROLS: usize = 2;
 /// Robot geometry
 const ROBOT_WHEEL_RADIUS: f64 = 0.04;
 const ROBOT_SIDE_LENGTH: f64 = 0.1;
-const SENSOR_ARRAY_LENGTH: f64 = ROBOT_SIDE_LENGTH * 1.1;
-const SENSOR_ARRAY_SEPARATION: f64 = SENSOR_ARRAY_LENGTH / 5.0;
-const MAX_SENSOR_DISTANCE: f64 = 4.0 * SENSOR_ARRAY_SEPARATION / 5.0;
-const SENSOR_DISTANCE_TO_ROBOT_CENTER: f64 = ROBOT_SIDE_LENGTH * 3.0 / 5.0;
-// Track geometry
-const TRACK_WIDTH: f64 = 0.01;
 
 // Dynamical constants
 // DC Motor constants
@@ -88,17 +82,7 @@ impl RobotSimulation {
     }
 
     pub fn theta_error_estimate(&self) -> f64 {
-        // let vt = self.robot_projection_tangent();
-        // let (xt, yt) = (vt[0], vt[1]);
-        // let path_angle = yt.atan2(xt);
-        // path_angle - self.state[2]
         self.robot_sdf_to_path()
-
-        // find_theta(
-        //     &self.sensor_distances(),
-        //     MAX_SENSOR_DISTANCE,
-        //     ROBOT_SIDE_LENGTH / 2.0,
-        // )
     }
 
     pub fn get_state(&self) -> Vector<NUM_STATES> {
@@ -202,101 +186,4 @@ impl RobotSimulation {
 
         Vector2::<f64>::new(ul, ur)
     }
-
-    // fn sensor_distances(&self) -> [f64; 5] {
-    //     // we initially consider the robot pointing rightward, so the sensor array is vertical (x constant)
-    //     let mut sensor_positions = [
-    //         Vector2::<f64>::new(
-    //             SENSOR_DISTANCE_TO_ROBOT_CENTER,
-    //             2.0 * SENSOR_ARRAY_SEPARATION,
-    //         ),
-    //         Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, SENSOR_ARRAY_SEPARATION),
-    //         Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, 0.0),
-    //         Vector2::<f64>::new(SENSOR_DISTANCE_TO_ROBOT_CENTER, -SENSOR_ARRAY_SEPARATION),
-    //         Vector2::<f64>::new(
-    //             SENSOR_DISTANCE_TO_ROBOT_CENTER,
-    //             -2.0 * SENSOR_ARRAY_SEPARATION,
-    //         ),
-    //     ];
-
-    //     // now we rotate the sensor array by theta counter-clockwise
-    //     // and translate it by (x, y)
-    //     for p in sensor_positions.iter_mut() {
-    //         let rotation = Rotation2::new(self.state[2]);
-    //         let rotated = rotation * (*p);
-    //         *p = Vector2::<f64>::new(self.state[0], self.state[1]) + rotated;
-    //     }
-
-    //     let mut sensor_distances = [0.0f64; 5];
-    //     for i in 0..5 {
-    //         if let Some(d) = self.path.sdf(sensor_positions[i].x, sensor_positions[i].y) {
-    //             sensor_distances[i] = d.abs();
-    //         } else {
-    //             sensor_distances[i] = 1e10;
-    //         }
-    //     }
-    //     sensor_distances
-    // }
-
-    // fn sensor_signals(&self) -> [f64; 5] {
-    //     let sensor_distances = self.sensor_distances();
-    //     let mut sensor_signals = [0.0f64; 5];
-    //     for i in 0..5 {
-    //         if sensor_distances[i] < TRACK_WIDTH / 2.0 {
-    //             sensor_signals[i] = 0.0;
-    //         } else {
-    //             sensor_signals[i] = 1.0;
-    //         }
-    //     }
-    //     sensor_signals
-    // }
-}
-
-/// Attempts to estimate the angle between the robot and the track by looking at the sensor readings
-/// Pretty much uses the formula y = mx + b, but with some extra checks to make sure the sensors
-/// are either on one side of the track or the other (or if they cross the track)
-#[inline(always)]
-fn find_theta(y: &[f64; 5], l: f64, d: f64) -> f64 {
-    // if sensor readings are increasing, then the sensor array is on the right side of the track
-    let mut increasing = true;
-
-    for i in 0..y.len() - 1 {
-        if y[i] > y[i + 1] {
-            increasing = false;
-            break;
-        }
-    }
-    if increasing {
-        let m = (y[4] - y[0]) / l;
-        if m.abs() <= 1.0 {
-            return m.acos();
-        }
-    }
-
-    // if sensor readings are decreasing, then the sensor array is on the left side of the track
-    let mut decreasing = true;
-
-    for i in 0..y.len() - 1 {
-        if y[i] < y[i + 1] {
-            decreasing = false;
-            break;
-        }
-    }
-
-    if decreasing {
-        let m = (y[0] - y[4]) / l;
-        if m.abs() <= 1.0 {
-            return m.acos();
-        }
-    }
-
-    // avoid division by zero
-    if (y[4] - y[0]).abs() < 1e-6 {
-        return 0.0;
-    }
-
-    // if the sensor readings cross the track, then it is V shaped
-    // so we find the point where the sensor readings cross the track (0.0 <= t <= 1.0)
-    let t = y[0] / (y[4] - y[0]);
-    ((0.5 + t) / d).atan()
 }
