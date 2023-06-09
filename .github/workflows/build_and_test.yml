@@ -19,11 +19,9 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@1.65.0
         with:
-          profile: default
-          toolchain: 1.65.0
-          override: true
+          components: rustfmt
 
       - name: Install packages (Linux)
         if: runner.os == 'Linux'
