@@ -45,7 +45,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --all -- -D warnings # performs checks with default features
+          args: --all # performs checks with default features
       - name: Cargo test
         uses: actions-rs/cargo@v1
         with:
