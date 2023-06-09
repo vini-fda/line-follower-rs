@@ -87,34 +87,6 @@ impl RobotSimulation {
         }
     }
 
-    pub fn calculate_control(&mut self, dt: f64) -> Vector<NUM_CONTROLS> {
-        // control system
-
-        // estimate the robot's angle relative to the track
-        // (i.e. the error in theta) by using the sensor array data
-        let error_estimate = self.theta_error_estimate();
-        let deriv_error = (error_estimate - self.prev_error) / dt;
-        self.prev_error = error_estimate;
-        self.int_error += error_estimate * dt;
-
-        // PID Constants
-        // const KP: f64 = 0.0003;
-        // const KI: f64 = 0.0006;
-        // const KD: f64 = 0.009;
-        // u(t) = Kp * e(t) + Ki * \int e(t) dt + Kd * \frac{de(t)}{dt}
-        let desired_dtheta =
-            self.kp * error_estimate + self.ki * self.int_error + self.kd * deriv_error;
-        let k = ROBOT_SIDE_LENGTH * C2 / ROBOT_WHEEL_RADIUS;
-
-        let v = k * desired_dtheta;
-        let um = 2.0 * self.speed * C2 / ROBOT_WHEEL_RADIUS;
-
-        let ul = (um - v) / 2.0;
-        let ur = (um + v) / 2.0;
-
-        Vector2::<f64>::new(ul, ur)
-    }
-
     pub fn theta_error_estimate(&self) -> f64 {
         // let vt = self.robot_projection_tangent();
         // let (xt, yt) = (vt[0], vt[1]);
@@ -175,6 +147,13 @@ impl RobotSimulation {
         self.path.point_projection_tangent(self.robot_position())
     }
 
+    pub fn step(&mut self, dt: f64) {
+        self.controls = self.calculate_control(dt);
+        self.integrator.step(dt, &self.controls);
+        self.state = self.integrator.get_state();
+        self.time += dt;
+    }
+
     fn robot_dynamics(
         _: f64,
         x: &Vector<NUM_STATES>,
@@ -194,6 +173,34 @@ impl RobotSimulation {
         let d_dwr = (ur - C1 * dwr - C2 * wr) / C0;
 
         Vector::<7>::from_column_slice(&[d_x, d_y, d_theta, d_wl, d_dwl, d_wr, d_dwr])
+    }
+
+    fn calculate_control(&mut self, dt: f64) -> Vector<NUM_CONTROLS> {
+        // control system
+
+        // estimate the robot's angle relative to the track
+        // (i.e. the error in theta) by using the sensor array data
+        let error_estimate = self.theta_error_estimate();
+        let deriv_error = (error_estimate - self.prev_error) / dt;
+        self.int_error += self.prev_error * dt;
+        self.prev_error = error_estimate;
+
+        // PID Constants
+        // const KP: f64 = 0.0003;
+        // const KI: f64 = 0.0006;
+        // const KD: f64 = 0.009;
+        // u(t) = Kp * e(t) + Ki * \int e(t) dt + Kd * \frac{de(t)}{dt}
+        let desired_dtheta =
+            self.kp * error_estimate + self.ki * self.int_error + self.kd * deriv_error;
+        let k = ROBOT_SIDE_LENGTH * C2 / ROBOT_WHEEL_RADIUS;
+
+        let v = k * desired_dtheta;
+        let um = 2.0 * self.speed * C2 / ROBOT_WHEEL_RADIUS;
+
+        let ul = (um - v) / 2.0;
+        let ur = (um + v) / 2.0;
+
+        Vector2::<f64>::new(ul, ur)
     }
 
     // fn sensor_distances(&self) -> [f64; 5] {
@@ -243,13 +250,6 @@ impl RobotSimulation {
     //     }
     //     sensor_signals
     // }
-
-    pub fn step(&mut self, dt: f64) {
-        self.integrator.step(dt, &self.controls);
-        self.state = self.integrator.get_state();
-        self.controls = self.calculate_control(dt);
-        self.time += dt;
-    }
 }
 
 /// Attempts to estimate the angle between the robot and the track by looking at the sensor readings
