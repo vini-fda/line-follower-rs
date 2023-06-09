@@ -35,7 +35,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.65.0
       - name: Install packages (ubuntu-latest)
-        if: ${{ matrix.os }} == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest'
         #based on https://github.com/marketplace/actions/cache-apt-packages
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
