@@ -1,0 +1,42 @@
+name: Build and release
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        name: ['macOS', 'Windows', 'Linux']
+        include:
+          - name: Linux
+            os: ubuntu-latest
+            copy: mkdir package && cd target/release && cp linefollower_gui linefollower_optim_cli path_editor ../../package
+          - name: macOS
+            os: macos-latest
+            copy: mkdir package && cd target/release && cp linefollower_gui linefollower_optim_cli path_editor ../../package
+          - name: Windows
+            os: windows-latest
+            copy: mkdir package && copy target\\release\\*.exe package
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: cargo build --release --all
+      - name: Copy executables
+        run: ${{ matrix.copy }}
+      - name: Pack
+        uses: papeloto/action-zip@v1
+        with:
+          files: package
+          dest: linefollower-${{ matrix.os }}.zip
+          recursive: true
+      - name: Upload builds
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: true
+          file: linefollower-${{ matrix.os }}.zip
+          tag: ${{ github.ref }}
