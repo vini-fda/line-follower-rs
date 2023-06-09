@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use nalgebra::{distance_squared, Point2, Rotation2, Vector2};
+use nalgebra::{distance_squared, Point2, Vector2};
 
 use crate::geometry::closed_path::ClosedPath;
 use crate::geometry::track::Track;

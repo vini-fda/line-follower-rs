@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use linefollower_core::geometry::closed_path::ClosedPath;
 use linefollower_core::geometry::track::Track;

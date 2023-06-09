@@ -5,7 +5,7 @@ use crate::{
 use egui::{Color32, InputState, Painter, Pos2, Response, Ui};
 use linefollower_core::geometry::closed_path::{ClosedPath, SubPath};
 use mint::Point2;
-use petgraph::{stable_graph::NodeIndex, visit::NodeRef};
+use petgraph::stable_graph::NodeIndex;
 use std::io::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -4,10 +4,7 @@ use crate::{
     tools::{arc_tool::ArcPathTool, line_tool::LinePathTool, select_tool::SelectTool, tool::Tool},
 };
 use egui::*;
-use linefollower_core::{
-    geometry::track::Track,
-    utils::{math::sigmoid, traits::Float},
-};
+use linefollower_core::{geometry::track::Track, utils::math::sigmoid};
 use petgraph::prelude::DiGraph;
 
 pub struct PathEditorApp {
@@ -17,7 +14,7 @@ pub struct PathEditorApp {
 }
 
 impl PathEditorApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             tool: Tool::new(),
             canvas: Canvas::default(),
@@ -27,7 +24,7 @@ impl PathEditorApp {
 }
 
 impl eframe::App for PathEditorApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default()
             .frame(egui::Frame::dark_canvas(&ctx.style()))
             .show(ctx, |ui| {
