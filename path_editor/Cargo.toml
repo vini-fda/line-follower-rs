@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = { workspace = true }
 
 [dependencies]
-egui = { version = "0.21.0", features = ["mint", "cint", "bytemuck"] }
+egui = { version = "0.22.0", features = ["mint", "cint", "bytemuck"] }
 mint = { version = "0.5.9" }
-eframe = "0.21.3"
+eframe = "0.22"
 petgraph = "0.6.3"
 nalgebra = { workspace = true }
 linefollower_core = { workspace = true }
