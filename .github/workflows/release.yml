@@ -3,9 +3,18 @@ on:
   release:
     types: [created]
 
+env:
+  # web_sys_unstable_apis is required to enable the web_sys clipboard API which eframe web uses,
+  # as well as by the wasm32-backend of the wgpu crate.
+  # https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.Clipboard.html
+  # https://rustwasm.github.io/docs/wasm-bindgen/web-sys/unstable-apis.html
+  RUSTFLAGS: --cfg=web_sys_unstable_apis -D warnings
+  RUSTDOCFLAGS: -D warnings
+  CARGO_TERM_COLOR: always
+
 jobs:
-  build:
-    name: ${{ matrix.name }}
+  build-release:
+    name: Build + release
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -22,7 +31,19 @@ jobs:
             os: windows-latest
             copy: mkdir package && copy target\\release\\*.exe package
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.65.0
+      - name: Install packages (ubuntu-latest)
+        if: ${{ matrix.os }} == 'ubuntu-latest'
+        #based on https://github.com/marketplace/actions/cache-apt-packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libgtk-3-dev libasound2-dev # libgtk-3-dev is used by rfd
+          version: 1.0
+          execute_install_scripts: true
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build --release --all
       - name: Copy executables
