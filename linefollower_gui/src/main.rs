@@ -55,8 +55,22 @@ impl ColorScheme {
 
     fn set_theme(&self, egui_ctx: &egui::Context) {
         if self.darkmode {
+            egui_ctx.set_visuals(egui::Visuals {
+                window_shadow: egui::epaint::Shadow {
+                    extrusion: 0.0,
+                    color: egui::Color32::TRANSPARENT,
+                },
+                ..egui::Visuals::dark()
+            });
             catppuccin_egui::set_theme(egui_ctx, catppuccin_egui::MOCHA);
         } else {
+            egui_ctx.set_visuals(egui::Visuals {
+                window_shadow: egui::epaint::Shadow {
+                    extrusion: 0.0,
+                    color: egui::Color32::TRANSPARENT,
+                },
+                ..egui::Visuals::light()
+            });
             catppuccin_egui::set_theme(egui_ctx, catppuccin_egui::LATTE);
         }
     }
