@@ -153,6 +153,7 @@ async fn main() {
 
     let mut show_omega_plot = false;
     let mut show_robot_distance_plot = false;
+    let mut show_pid_terms_plot = false;
 
     // control simulation speed
     let mut speed_multiplier = 1;
@@ -169,6 +170,19 @@ async fn main() {
 
     let mut wr_history = [0.0f32; 600];
     let mut wr_i = 0;
+
+    // PID terms
+    // MUSTFIX: SEGFAULTS IF THIS IS TOO BIG (400 is fine)
+    // for example, with 600 points for each, it segfaults when you try to draw the plot with lines
+    // I suspect this is a bug in macroquad or egui
+    let mut p_term_history = [0.0f32; 400];
+    let mut kpn = 0;
+
+    let mut i_term_history = [0.0f32; 400];
+    let mut kin = 0;
+
+    let mut d_term_history = [0.0f32; 400];
+    let mut kdn = 0;
 
     // whether the user has selected a path
     let mut path_selected = false;
@@ -282,6 +296,15 @@ async fn main() {
 
                 robot_sdf_history[i] = robot_sim.robot_sdf_to_path() as f32;
                 i = (i + 1) % robot_sdf_history.len();
+
+                p_term_history[kpn] = robot_sim.get_proportional_term() as f32;
+                kpn = (kpn + 1) % p_term_history.len();
+
+                i_term_history[kin] = robot_sim.get_integral_term() as f32;
+                kin = (kin + 1) % i_term_history.len();
+
+                d_term_history[kdn] = robot_sim.get_derivative_term() as f32;
+                kdn = (kdn + 1) % d_term_history.len();
             }
         }
         // calculate zoom from mouse scroll
@@ -309,6 +332,10 @@ async fn main() {
                     ui.checkbox(&mut should_draw_grid, "Draw grid");
                     ui.checkbox(&mut follow_robot, "Follow robot with camera");
                     ui.checkbox(&mut paused, "Pause simulation");
+                    // reset simulation button
+                    if ui.button("Reset simulation").clicked() {
+                        robot_sim.reset();
+                    }
                     // simulation speed label
                     let sim_speed_label = ui.label("Simulation speed: ");
                     ui.add(egui::Slider::new(&mut speed_multiplier, 1..=3).clamp_to_range(true))
@@ -376,16 +403,40 @@ async fn main() {
                             );
                         ui.toggle_value(&mut show_robot_distance_plot, "Plot robot distance")
                             .on_hover_text("Plot the distance of the robot to the path over time");
+                        ui.toggle_value(&mut show_pid_terms_plot, "Plot PID terms")
+                            .on_hover_text(
+                                "Plot the P, I and D terms of the PID controller over time",
+                            );
 
                         ui.label(RichText::new("🔧 Parameters").heading());
                         ui.separator();
                         ui.label(format!("Robot side length: {:.3}", ROBOT_SIDE_LENGTH));
                         ui.label(format!("Sensor array length: {:.3}", SENSOR_ARRAY_LENGTH));
                         // KP, KI, KD, SPEED
-                        ui.label(format!("Kp = {:.3}", KP));
-                        ui.label(format!("Ki = {:.3}", KI));
-                        ui.label(format!("Kd = {:.3}", KD));
-                        ui.label(format!("Speed = {:.3}", SPEED));
+                        ui.add(
+                            egui::Slider::new(&mut robot_sim.kp, 0.0..=100.0)
+                                .clamp_to_range(true)
+                                .smart_aim(true)
+                                .text("Kp"),
+                        );
+                        ui.add(
+                            egui::Slider::new(&mut robot_sim.ki, 0.0..=100.0)
+                                .clamp_to_range(true)
+                                .smart_aim(true)
+                                .text("Ki"),
+                        );
+                        ui.add(
+                            egui::Slider::new(&mut robot_sim.kd, 0.0..=100.0)
+                                .clamp_to_range(true)
+                                .smart_aim(true)
+                                .text("Kd"),
+                        );
+                        ui.add(
+                            egui::Slider::new(&mut robot_sim.speed, 0.0..=20.0)
+                                .clamp_to_range(true)
+                                .smart_aim(true)
+                                .text("Speed"),
+                        )
                     });
                 });
 
@@ -405,7 +456,7 @@ async fn main() {
                         ui.colored_label(wr_color, "right (ωr)");
                         ui.label(" wheels over time, in rad/s.");
                     });
-                    let plot = egui::plot::Plot::new("debug_view_omegas")
+                    let plot = egui::plot::Plot::new("plot_omegas")
                         .label_formatter(|name, value| {
                             if !name.is_empty() {
                                 format!("{}: {:.*} rad/s", name, 1, value.y)
@@ -450,7 +501,7 @@ async fn main() {
                         ui.colored_label(negative_color, "negative");
                         ui.label(" which means it is inside the track.");
                     });
-                    let plot = egui::plot::Plot::new("debug_view_robot_distance")
+                    let plot = egui::plot::Plot::new("plot_robot_distance")
                         .label_formatter(|name, value| {
                             if !name.is_empty() {
                                 format!("{}: {:.3} m", name, value.y)
@@ -493,6 +544,53 @@ async fn main() {
                                 .color(negative_color)
                                 .stems(0.0)
                                 .name("d(t)"),
+                        );
+                    });
+                });
+            }
+
+            if show_pid_terms_plot {
+                egui::Window::new("PID terms").show(egui_ctx, |ui| {
+                    let kp_color = egui::Color32::from_rgb(229, 75, 75);
+                    let ki_color = egui::Color32::from_rgb(92, 200, 255);
+                    let kd_color = egui::Color32::from_rgb(158, 217, 161);
+                    ui.horizontal_wrapped(|ui| {
+                        // Trick so we don't have to add spaces in the text below:
+                        let width =
+                            ui.fonts(|f| f.glyph_width(&TextStyle::Body.resolve(ui.style()), ' '));
+                        ui.spacing_mut().item_spacing.x = width;
+                        ui.label("This plot shows the PID terms over time.");
+                    });
+                    let plot = egui::plot::Plot::new("plot_pid_terms")
+                        .label_formatter(|name, value| {
+                            if !name.is_empty() {
+                                format!("{}: {:.*}", name, 1, value.y)
+                            } else {
+                                "".to_owned()
+                            }
+                        })
+                        .view_aspect(2.0)
+                        .allow_zoom(false)
+                        .allow_drag(false)
+                        .allow_scroll(false)
+                        .legend(Legend::default())
+                        .show_background(false);
+
+                    plot.show(ui, |plot_ui| {
+                        plot_ui.line(
+                            Line::new(PlotPoints::from_ys_f32(&p_term_history))
+                                .color(kp_color)
+                                .name("P(t)"),
+                        );
+                        plot_ui.line(
+                            Line::new(PlotPoints::from_ys_f32(&i_term_history))
+                                .color(ki_color)
+                                .name("I(t)"),
+                        );
+                        plot_ui.line(
+                            Line::new(PlotPoints::from_ys_f32(&d_term_history))
+                                .color(kd_color)
+                                .name("D(t)"),
                         );
                     });
                 });
