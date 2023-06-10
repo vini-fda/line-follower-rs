@@ -23,9 +23,9 @@ const MIN_ZOOM: f32 = 0.01;
 
 // PID Constants
 const KP: f64 = 25.908317542875754;
-const KI: f64 = 81.02522946834891; 
+const KI: f64 = 81.02522946834891;
 const KD: f64 = 40.95824622164516;
-const SPEED: f64 = 0.3599426035093697; 
+const SPEED: f64 = 0.3599426035093697;
 
 struct ColorScheme {
     pub darkmode: bool,
