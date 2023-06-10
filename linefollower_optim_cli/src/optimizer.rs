@@ -8,10 +8,11 @@ pub struct RobotOptimizer {
     path: Arc<ClosedPath<f64>>,
     dt: f64,
 }
-const KP: f64 = 2.565933287511912;
-const KI: f64 = 52.33814267275805;
-const KD: f64 = 10.549477731373042;
-const SPEED: f64 = 1.4602563968294984;
+// PID Constants
+const KP: f64 = 3.130480505558367; //2.565933287511912; //3.49;
+const KI: f64 = 73.01770822094774; //52.33814267275805; //37.46;
+const KD: f64 = 11.273635752474997; //10.549477731373042; //13.79;
+const SPEED: f64 = 1.6710281486754923; //1.4602563968294984; //1.04;
 impl RobotOptimizer {
     pub fn new(max_iter: usize, dt: f64, path: Arc<ClosedPath<f64>>) -> Self {
         Self { max_iter, path, dt }
@@ -21,14 +22,12 @@ impl RobotOptimizer {
         let x0 = Vector::<7>::from_column_slice(&[0.0, -4.0, 0.1, 0.0, 0.0, 0.0, 0.0]);
         let mut robot_sim = RobotSimulation::new(x0, kp, ki, kd, speed, self.path.clone());
         let mut fitness = 0.0;
-        const W0: f64 = 0.5;
-        const W1: f64 = 0.9;
         for _ in 0..self.max_iter {
             let e = robot_sim.robot_error();
             let dist_err = robot_sim.robot_sdf_to_path();
             let dist_err = dist_err * dist_err;
             let ve = robot_sim.robot_velocity_reward();
-            fitness += (ve - W0 * e - W1 * dist_err) * self.dt;
+            fitness += (ve - e - 100.0 * dist_err) * self.dt;
             robot_sim.step(self.dt);
         }
         fitness
@@ -41,28 +40,19 @@ impl RobotOptimizer {
             .population_size(300)
             .weights(cmaes::Weights::Negative)
             .enable_plot(PlotOptions::new(0, false))
+            .enable_printing(1000)
             .build(self)
             .unwrap();
         let soln = cmaes_state.run_parallel();
         // get date and time to put in filename
         let now = chrono::Local::now();
         let filename = format!("plot_{}.png", now.format("%Y-%m-%d_%H-%M-%S"));
-        soln.reasons.iter().for_each(|r| println!("{:?}", r));
         cmaes_state
             .get_plot()
             .unwrap()
             .save_to_file(filename, true)
             .unwrap();
         soln.overall_best.unwrap().point
-
-        // let restarter = RestartOptions::new(4, 0.0..=1.0, cmaes::restart::RestartStrategy::BIPOP(BIPOP::default()))
-        //                 .mode(cmaes::Mode::Maximize)
-        //                 .enable_printing(true)
-        //                 .build()
-        //                 .unwrap();
-        // let f = |x: &cmaes::DVector<f64>| self.evaluate_parallel(x);
-        // let results = restarter.run_parallel(|| f);
-        // results.best.unwrap().point
     }
 }
 
