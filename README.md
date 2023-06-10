@@ -42,6 +42,31 @@ Just run the executable by double-clicking it or running it from the command lin
 
 The `line_follower_cli` binary is used to find the best controller parameters for the robot. It uses the [CMA-ES](https://en.wikipedia.org/wiki/CMA-ES) algorithm to optimize the parameters. The algorithm is implemented in the [cmaes](https://github.com/pengowen123/cmaes) crate.
 
+When running the tool, you should see output similar to this one:
+
+```text
+Running optimization...
+aCMA-ES with dimension=4, lambda=300, seed=16288843452448529938
+ Gen #  | f evals | Best function value | Axis Ratio |   Sigma    |  Min std   |  Max std
+-------------------------------------------------------------------------------------------
+      1 |     300 | -4.554237783676e+04 | 1.4008e+00 | 9.9837e-02 | 8.8225e-02 | 1.1155e-01
+      2 |     600 | -4.605828879559e+04 | 1.8923e+00 | 1.0006e-01 | 6.8764e-02 | 1.2275e-01
+      3 |     900 | -4.050201670353e+04 | 2.5375e+00 | 1.1017e-01 | 6.3484e-02 | 1.4004e-01
+      4 |    1200 | -3.839506730294e+04 | 2.9960e+00 | 1.1307e-01 | 5.8940e-02 | 1.4105e-01
+...
+Terminated with reason(s): `NoEffectCoord`
+Current best function value: 1.0548456113650464e2
+Overall best function value: 1.0548497399813101e2
+Final mean:
+  ┌                    ┐
+  │ 2.9682382637441114 │
+  │   63.3239093521287 │
+  │ 14.144606408009336 │
+  │  1.378692186196955 │
+  └                    ┘
+Wrote outputs to file "optimal_params_2023-06-09_23-20-18.txt"
+```
+
 ### `path_editor`
 
 The `path_editor` binary is a simple graphical tool to create a path for the robot to follow. It can be used to create a track for the `line_follower_gui` binary in the JSON format.
