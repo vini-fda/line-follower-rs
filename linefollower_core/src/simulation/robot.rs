@@ -36,15 +36,19 @@ pub struct RobotSimulation {
         NUM_STATES,
         NUM_CONTROLS,
     >,
+    initial_state: Vector<NUM_STATES>,
     state: Vector<NUM_STATES>,
     controls: Vector<NUM_CONTROLS>,
     path: Arc<ClosedPath<f64>>,
     prev_error: f64,
     int_error: f64,
-    kp: f64,
-    ki: f64,
-    kd: f64,
-    speed: f64,
+    pub kp: f64,
+    pub ki: f64,
+    pub kd: f64,
+    pub speed: f64,
+    proportional_term: f64,
+    integral_term: f64,
+    derivative_term: f64,
     time: f64,
 }
 
@@ -68,6 +72,7 @@ impl RobotSimulation {
 
         Self {
             integrator,
+            initial_state: x0,
             state: x,
             controls: u,
             path,
@@ -78,7 +83,24 @@ impl RobotSimulation {
             ki,
             kd,
             speed,
+            proportional_term: 0.0,
+            integral_term: 0.0,
+            derivative_term: 0.0,
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.state = self.initial_state;
+        self.controls = Vector::<NUM_CONTROLS>::zeros();
+        self.integrator = Rk4::new(
+            Self::robot_dynamics
+                as fn(f64, &Vector<NUM_STATES>, &Vector<NUM_CONTROLS>) -> Vector<NUM_STATES>,
+            0.0,
+            self.state,
+        );
+        self.time = 0.0;
+        self.prev_error = 0.0;
+        self.int_error = 0.0;
     }
 
     pub fn theta_error_estimate(&self) -> f64 {
@@ -169,13 +191,11 @@ impl RobotSimulation {
         self.int_error += self.prev_error * dt;
         self.prev_error = error_estimate;
 
-        // PID Constants
-        // const KP: f64 = 0.0003;
-        // const KI: f64 = 0.0006;
-        // const KD: f64 = 0.009;
         // u(t) = Kp * e(t) + Ki * \int e(t) dt + Kd * \frac{de(t)}{dt}
-        let desired_dtheta =
-            self.kp * error_estimate + self.ki * self.int_error + self.kd * deriv_error;
+        self.proportional_term = self.kp * error_estimate;
+        self.integral_term = self.ki * self.int_error;
+        self.derivative_term = self.kd * deriv_error;
+        let desired_dtheta = self.proportional_term + self.integral_term + self.derivative_term;
         let k = ROBOT_SIDE_LENGTH * C2 / ROBOT_WHEEL_RADIUS;
 
         let v = k * desired_dtheta;
@@ -185,5 +205,17 @@ impl RobotSimulation {
         let ur = (um + v) / 2.0;
 
         Vector2::<f64>::new(ul, ur)
+    }
+
+    pub fn get_proportional_term(&self) -> f64 {
+        self.proportional_term
+    }
+
+    pub fn get_integral_term(&self) -> f64 {
+        self.integral_term
+    }
+
+    pub fn get_derivative_term(&self) -> f64 {
+        self.derivative_term
     }
 }
