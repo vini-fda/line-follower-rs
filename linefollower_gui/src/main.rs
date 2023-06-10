@@ -381,10 +381,11 @@ async fn main() {
                         ui.separator();
                         ui.label(format!("Robot side length: {:.3}", ROBOT_SIDE_LENGTH));
                         ui.label(format!("Sensor array length: {:.3}", SENSOR_ARRAY_LENGTH));
-                        // KP, KI, KD
+                        // KP, KI, KD, SPEED
                         ui.label(format!("Kp = {:.3}", KP));
                         ui.label(format!("Ki = {:.3}", KI));
                         ui.label(format!("Kd = {:.3}", KD));
+                        ui.label(format!("Speed = {:.3}", SPEED));
                     });
                 });
 
