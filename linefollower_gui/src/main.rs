@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use egui::plot::{Legend, Line, PlotPoints, Points};
 use egui::{RichText, TextStyle};
 use itertools::Itertools;
@@ -25,8 +26,6 @@ const KP: f64 = 3.130480505558367; //2.565933287511912; //3.49;
 const KI: f64 = 73.01770822094774; //52.33814267275805; //37.46;
 const KD: f64 = 11.273635752474997; //10.549477731373042; //13.79;
 const SPEED: f64 = 1.6710281486754923; //1.4602563968294984; //1.04;
-
-// Kp: , Ki: , Kd:
 
 struct ColorScheme {
     pub darkmode: bool,
