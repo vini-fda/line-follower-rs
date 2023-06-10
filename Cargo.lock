@@ -1809,7 +1809,7 @@ dependencies = [
 
 [[package]]
 name = "linefollower_core"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "itertools",
  "nalgebra 0.32.2",
@@ -1819,7 +1819,7 @@ dependencies = [
 
 [[package]]
 name = "linefollower_gui"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "catppuccin-egui",
  "chrono",
@@ -1839,7 +1839,7 @@ dependencies = [
 
 [[package]]
 name = "linefollower_optim_cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "cmaes",
