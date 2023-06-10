@@ -1,5 +1,9 @@
 # line-follower-rs
 
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/vini-fda/line-follower-rs?display_name=tag&include_prereleases)
+![GitHub](https://img.shields.io/github/license/vini-fda/line-follower-rs)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/vini-fda/line-follower-rs/build_and_test.yml)
+
 There are two binaries in this Cargo project:
 
 - `line_follower_gui`: the simulation with a graphical interface
